@@ -8,6 +8,7 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include "DHT.h"
+#include <BH1750.h>
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
 #define fontX 7
@@ -35,6 +36,9 @@ int duration=200;
 float h;
 float t;
 int hum;
+float light=0.0;
+
+BH1750 lightMeter(0x5C);
 
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -102,6 +106,11 @@ result alert(menuOut& o, idleEvent e) {
       o.print(hum);
       o.setCursor(16,2);
       o.print("%");
+      o.setCursor(0,3);
+      o.print("Helligkeit ");
+      o.print(light);
+      //o.setCursor(15,3);
+      //o.print("lx");
       break;
     case Menu::idleEnd:
       break;
@@ -118,7 +127,7 @@ result updateGrowLED()
   return proceed;
 }
 
-result doAlert(eventMask e, prompt& item) //showTemperature()
+result doAlert(eventMask e, prompt& item) 
 {
   nav.idleOn(alert);
   return proceed;
@@ -153,10 +162,20 @@ void setup()
   Serial.println("Planto Menu");
   Serial.println("Use keys + - * /");
   Serial.println("to control the menu navigation");
+
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    Serial.println(F("BH1750 Advanced begin"));
+  }
+  else {
+    Serial.println(F("Error initialising BH1750"));
+  }
 }
 
 void loop()
 {
+  light = lightMeter.readLightLevel();
+  delay(250);
+
   if(last_change + duration <  millis())
   {
     last_change=millis();
