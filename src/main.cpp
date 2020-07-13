@@ -35,8 +35,14 @@ long last_change;
 int duration=200;
 float h;
 float t;
+int water;
 int hum;
 float light=0.0;
+//int dutyCycleFan = 0;
+//const int fanPin= ;
+//const int stepwidth=20;
+//const int minSpeed=75;
+//int fanSpeed=minSpeed;
 
 BH1750 lightMeter(0x5C);
 
@@ -54,14 +60,14 @@ const colorDef<uint8_t> colors[6] MEMMODE = {
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 result updateGrowLED();
-
+result warnungen(float licht);
 result doAlert(eventMask enterEvent, prompt& item);
 
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
+     //FIELD(dutyCycleFan, "Ventilator", "%", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
+     //OP("Warnungen", warnungen, enterEvent),
      OP("Messwerte", doAlert, enterEvent),
-     //FIELD(dutty,"Duty","%",0,100,1,0,updateDutty),
-     //OP("temp",temp)
      EXIT("<Back"));
 
 MENU_OUTPUTS(out, MAX_DEPTH, U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY,
@@ -88,9 +94,11 @@ result alert(menuOut& o, idleEvent e) {
     case Menu::idleStart:  
       break;
     case Menu::idling:
+      t = dht.readTemperature();
+      //water=map(analogRead(PinCapacitiveSoil), 0, 4095, 100, 0);
+      water=map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       h = dht.readHumidity();
       hum=((int)(h*10)) / 10.0;
-      t = dht.readTemperature();
       o.setCursor(0, 0);
       o.print("Temperatur ");
       o.print(t,1);
@@ -98,7 +106,7 @@ result alert(menuOut& o, idleEvent e) {
       o.print("C");
       o.setCursor(0,1);
       o.print("Wasserstand ");
-      o.print(map(analogRead(PinCapacitiveSoil), 0, 4095, 100, 0));
+      o.print(water);
       o.setCursor(15,1);
       o.print("%");
       o.setCursor(0,2);
@@ -111,6 +119,7 @@ result alert(menuOut& o, idleEvent e) {
       o.print(light,0);
       o.setCursor(15,3);
       o.print("lx");
+      //void warnungen(light);
       break;
     case Menu::idleEnd:
       break;
@@ -127,6 +136,15 @@ result updateGrowLED()
   return proceed;
 }
 
+/*
+result updateFan()
+{
+  
+  analogWrite(fanPin, fanSpeed)
+  return proceed;
+}
+*/
+
 result doAlert(eventMask e, prompt& item) 
 {
   nav.idleOn(alert);
@@ -139,6 +157,16 @@ void updateDisplay() {
   do {
     nav.doOutput();
   } while (u8g2.nextPage());
+}
+
+result warnungen(float licht ) {
+  //void warnungen(float temperatur, int wasserstand, int feuchtigkeit, float licht){
+  u8g2.firstPage();
+  if(licht>5000){
+    //u8g2.setAutoPageClear;
+    u8g2.drawStr(0,3,"Warnung");
+    //u8g2.print("Warnung");
+  }
 }
 
 void setup()
@@ -156,12 +184,20 @@ void setup()
   pinMode(PinTasterDown, INPUT_PULLUP);
   pinMode(PinTasterEsc, INPUT_PULLUP);
 
+  //TCCR1B = TCCR1B & 0b11111000 | 0x01;
+
   Serial.begin(115200);
   while (!Serial)
     ;
   Serial.println("Planto Menu");
   Serial.println("Use keys + - * /");
   Serial.println("to control the menu navigation");
+
+  /*
+  analogWrite(fanPin, 255);       
+  delay(1000);
+  analogWrite(fanPin, fanSpeed);
+  */
 
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
@@ -174,7 +210,7 @@ void setup()
 void loop()
 {
   light = lightMeter.readLightLevel();
-  delay(250);
+  delay(150);
 
   if(last_change + duration <  millis())
   {
@@ -183,11 +219,13 @@ void loop()
     nav.refresh();
   }
 
-
   nav.doInput();
 
   if (nav.changed(0)){
     updateDisplay();
   }
   nav.doOutput();
+
+  warnungen(light);
+
 }
