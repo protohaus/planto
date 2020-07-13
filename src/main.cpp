@@ -108,9 +108,9 @@ result alert(menuOut& o, idleEvent e) {
       o.print("%");
       o.setCursor(0,3);
       o.print("Helligkeit ");
-      o.print(light);
-      //o.setCursor(15,3);
-      //o.print("lx");
+      o.print(light,0);
+      o.setCursor(15,3);
+      o.print("lx");
       break;
     case Menu::idleEnd:
       break;
