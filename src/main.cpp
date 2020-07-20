@@ -97,6 +97,8 @@ result alert(menuOut& o, idleEvent e) {
       t = dht.readTemperature();
       //water=map(analogRead(PinCapacitiveSoil), 0, 4095, 100, 0);
       water=map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
+      if (water<0) { water =0; }
+      if (water>100) { water =100; }
       h = dht.readHumidity();
       hum=((int)(h*10)) / 10.0;
       o.setCursor(0, 0);
