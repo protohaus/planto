@@ -153,13 +153,7 @@ result doAlert(eventMask e, prompt& item)
   return proceed;
 }
 
-result idleMenu(menuOut& o,idleEvent e) {
-  o.clear();
-  switch(e) {
-    case idleStart:o.println("suspending menu!");break;
-    case idling:
-    //o.println("suspended...");
-    o.clear();
+void warnings(menuOut& o){
     if (dht.readTemperature()<15){
       o.setCursor(0,2);
       o.println("zu kalt");
@@ -192,11 +186,22 @@ result idleMenu(menuOut& o,idleEvent e) {
       o.setCursor(0,0);
       o.println("zu wenig Licht");
     }
+}
+
+result idleMenu(menuOut& o,idleEvent e) {
+  o.clear();
+  switch(e) {
+    case idleStart:o.println("suspending menu!");break;
+    case idling:
+    o.clear();
+    warnings(o);
     break; 
     case idleEnd:o.println("resuming menu.");break;
   }
   return proceed;
 }
+
+
 
 void updateDisplay() {
   // change checking leaves more time for other tasks
