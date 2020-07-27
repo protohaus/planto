@@ -32,7 +32,7 @@ const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
 long last_change;
-int duration=200;
+int duration=5000;
 float h;
 float t;
 int water;
@@ -153,6 +153,51 @@ result doAlert(eventMask e, prompt& item)
   return proceed;
 }
 
+result idleMenu(menuOut& o,idleEvent e) {
+  o.clear();
+  switch(e) {
+    case idleStart:o.println("suspending menu!");break;
+    case idling:
+    //o.println("suspended...");
+    o.clear();
+    if (dht.readTemperature()<15){
+      o.setCursor(0,2);
+      o.println("zu kalt");
+    }
+    if (dht.readTemperature()>30){
+      o.setCursor(0,2);
+      o.println("zu warm");
+    }
+    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10){
+      o.setCursor(0,1);
+      o.println("zu wenig Wasser");
+    }
+    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95){
+      o.setCursor(0,1);
+      o.println("zu viel Wasser");
+    }
+    if (dht.readHumidity()<15){
+      o.setCursor(0,3);
+      o.println("Luft ist zu trocken");
+    }
+    if (dht.readHumidity()>70){
+      o.setCursor(0,3);
+      o.println("zu feucht");
+    }
+    if(lightMeter.readLightLevel()>2000){
+      o.setCursor(0,0);
+      o.println("zu viel Licht");
+    } 
+    if(lightMeter.readLightLevel()<50){
+      o.setCursor(0,0);
+      o.println("zu wenig Licht");
+    }
+    break; 
+    case idleEnd:o.println("resuming menu.");break;
+  }
+  return proceed;
+}
+
 void updateDisplay() {
   // change checking leaves more time for other tasks
   u8g2.firstPage();
@@ -188,12 +233,10 @@ void setup()
 
   //TCCR1B = TCCR1B & 0b11111000 | 0x01;
 
+  nav.idleTask=idleMenu;
+
   Serial.begin(115200);
-  while (!Serial)
-    ;
-  Serial.println("Planto Menu");
-  Serial.println("Use keys + - * /");
-  Serial.println("to control the menu navigation");
+  while (!Serial);
 
   /*
   analogWrite(fanPin, 255);       
@@ -214,7 +257,7 @@ void loop()
   light = lightMeter.readLightLevel();
   delay(150);
 
-  if(last_change + duration <  millis())
+  if( abs(last_change - millis()) > duration)
   {
     last_change=millis();
     nav.idleChanged=true;
@@ -227,7 +270,5 @@ void loop()
     updateDisplay();
   }
   nav.doOutput();
-
-  warnungen(light);
 
 }
