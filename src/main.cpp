@@ -71,11 +71,12 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 result updateGrowLED();
 result warnungen(float licht);
+result updateFan();
 result doAlert(eventMask enterEvent, prompt& item);
 
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
-     //FIELD(dutyCycleFan, "Ventilator", "%", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
+     FIELD(dutyCycleFan, "Ventilator", " ", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
      OP("Messwerte", doAlert, enterEvent),
      EXIT("<Back"));
 
@@ -145,14 +146,24 @@ result updateGrowLED()
   return proceed;
 }
 
-/*
+
 result updateFan()
 {
-  
-  analogWrite(fanPin, fanSpeed)
+  /*
+    for(dutyCycleFan=0; dutyCycleFan<=255; dutyCycleFan++){
+    ledcWrite(fanChannel, dutyCycleFan);
+    delay(15);
+  }
+  for(dutyCycleFan=255; dutyCycleFan>=0; dutyCycleFan--){
+    ledcWrite(fanChannel, dutyCycleFan);
+    delay(15);
+  }
+  */
+  //analogWrite(fanPin, fanSpeed)
+  ledcWrite(fanChannel, dutyCycleFan);
   return proceed;
 }
-*/
+
 
 result doAlert(eventMask e, prompt& item) 
 {
@@ -272,12 +283,6 @@ void setup()
   Serial.begin(115200);
   while (!Serial);
 
-  /*
-  analogWrite(fanPin, 255);       
-  delay(1000);
-  analogWrite(fanPin, fanSpeed);
-  */
-
   if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
   }
@@ -304,14 +309,5 @@ void loop()
     updateDisplay();
   }
   nav.doOutput();
-
-  for(dutyCycleFan=0; dutyCycleFan<=255; dutyCycleFan++){
-    ledcWrite(fanChannel, dutyCycleFan);
-    delay(15);
-  }
-  for(dutyCycleFan=255; dutyCycleFan>=0; dutyCycleFan--){
-    ledcWrite(fanChannel, dutyCycleFan);
-    delay(15);
-  }
 
 }
