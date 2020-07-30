@@ -43,8 +43,13 @@ bool flag_temp=false;
 bool flag_water=false;
 bool flag_hum=false;
 bool flag_light=false;
-//int dutyCycleFan = 0;
-//const int fanPin= ;
+
+const int fanPWM=27; // wird genutzt?
+const int fanTacho=26;
+int dutyCycleFan = 0;
+const int fanFreq=25000;
+const int fanResolution=8; // regeln von 0 bis 255 wg 8Bit
+const int fanChannel=0; //nur intern festgelegt, kann beliebig gewählt werden
 //const int stepwidth=20;
 //const int minSpeed=75;
 //int fanSpeed=minSpeed;
@@ -71,7 +76,6 @@ result doAlert(eventMask enterEvent, prompt& item);
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
      //FIELD(dutyCycleFan, "Ventilator", "%", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
-     //OP("Warnungen", warnungen, enterEvent),
      OP("Messwerte", doAlert, enterEvent),
      EXIT("<Back"));
 
@@ -100,7 +104,6 @@ result alert(menuOut& o, idleEvent e) {
       break;
     case Menu::idling:
       t = dht.readTemperature();
-      //water=map(analogRead(PinCapacitiveSoil), 0, 4095, 100, 0);
       water=map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water<0) { water =0; }
       if (water>100) { water =100; }
@@ -126,7 +129,6 @@ result alert(menuOut& o, idleEvent e) {
       o.print(light,0);
       o.setCursor(15,3);
       o.print("lx");
-      //void warnungen(light);
       break;
     case Menu::idleEnd:
       break;
@@ -243,16 +245,6 @@ void updateDisplay() {
   } while (u8g2.nextPage());
 }
 
-result warnungen(float licht ) {
-  //void warnungen(float temperatur, int wasserstand, int feuchtigkeit, float licht){
-  u8g2.firstPage();
-  if(licht>5000){
-    //u8g2.setAutoPageClear;
-    u8g2.drawStr(0,3,"Warnung");
-    //u8g2.print("Warnung");
-  }
-}
-
 void setup()
 {
   ledcSetup(ledChannel, freq, resolution);
@@ -268,7 +260,12 @@ void setup()
   pinMode(PinTasterDown, INPUT_PULLUP);
   pinMode(PinTasterEsc, INPUT_PULLUP);
 
-  //TCCR1B = TCCR1B & 0b11111000 | 0x01;
+  pinMode(fanPWM, OUTPUT);
+  pinMode(fanTacho, INPUT);
+
+  ledcSetup(fanChannel, fanFreq, fanResolution);
+
+  ledcAttachPin(fanPWM, fanChannel);
 
   nav.idleTask=idleMenu;
 
@@ -307,5 +304,14 @@ void loop()
     updateDisplay();
   }
   nav.doOutput();
+
+  for(dutyCycleFan=0; dutyCycleFan<=255; dutyCycleFan++){
+    ledcWrite(fanChannel, dutyCycleFan);
+    delay(15);
+  }
+  for(dutyCycleFan=255; dutyCycleFan>=0; dutyCycleFan--){
+    ledcWrite(fanChannel, dutyCycleFan);
+    delay(15);
+  }
 
 }
