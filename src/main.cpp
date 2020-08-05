@@ -76,6 +76,7 @@ result warnungen(float licht);
 result updateFan();
 result doAlert(eventMask enterEvent, prompt& item);
 
+//Code für das Menü (extern runter geladene Lib), welche Erklärung wollen wir hier fürs Verständnis geben?
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
      FIELD(dutyCycleFan, "Ventilator", " ", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
@@ -100,7 +101,7 @@ Menu::menuIn* inputsList[] = {&joystickBtns, &serial};
 Menu::chainStream<2> in(inputsList);  // 2 is the number of inputs
 
 NAVROOT(nav, mainMenu, MAX_DEPTH, in, out);
-
+//Wofür genau ist diese Methode? Was macht sie? Warum ist sie Wichtig? Warum heißt sie alert, wenn sie das Menue zeigt?
 result alert(menuOut& o, idleEvent e) {
   switch (e) {
     case Menu::idleStart:  
@@ -141,14 +142,14 @@ result alert(menuOut& o, idleEvent e) {
 
   return proceed;
 }
-
+//Methode zum Updaten der LED
 result updateGrowLED()
 {
   ledcWrite(ledChannel, dutyCycleLED);
   return proceed;
 }
 
-
+//Methode zum Updaten des fans, warum nochmal ausgegraut?
 result updateFan()
 {
   /*
@@ -166,13 +167,14 @@ result updateFan()
   return proceed;
 }
 
+//Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder Funktionalität zum menue?
 
 result doAlert(eventMask e, prompt& item) 
 {
   nav.idleOn(alert);
   return proceed;
 }
-
+//Methode, die die Fehlermeldungen ausgibt
 void warnings(menuOut& o){
     if (dht.readTemperature()<15){
       o.setCursor(0,2);
@@ -257,7 +259,7 @@ void updateDisplay() {
     nav.doOutput();
   } while (u8g2.nextPage());
 }
-
+//Setup des Programms, wird wann immer wiederholt? Einmal und dann nie wieder?
 void setup()
 {
   ledcSetup(ledChannel, freq, resolution);
@@ -292,7 +294,7 @@ void setup()
     Serial.println(F("Error initialising BH1750"));
   }
 }
-
+//sich wiederholende Methoden, welche genau
 void loop()
 {
   light = lightMeter.readLightLevel();
@@ -313,3 +315,9 @@ void loop()
   nav.doOutput();
 
 }
+
+//generell: Wo siehst du hier Code, den wir ggf. für Kids vereinfachen können? oder andere Möglichkeiten, wie wir den
+//code verständlich den Kindern näher bringen können? Durch das vorgegebene Menü ist das ja jetzt nicht so super
+//easy nachzuvollziehen...
+//Was fehlt hier jetzt noch?
+//Wo können wir welche erledigten Aufgaben hinter schreiben? (Energieersparnis, Ansteuerung xy-Sensor etc.) 
