@@ -1,3 +1,5 @@
+
+//libs, die für das Programm nötig sind
 #include <Arduino.h>
 #include <menu.h>
 #include <menuIO/serialOut.h>
@@ -19,15 +21,15 @@
 #define U8_Height 64
 #define DHTPIN 32
 #define DHTTYPE DHT11
-
+//Variablen, die nötig sind, und unsere Hardware ansprechen
 int test = 20;
-int PinLED=25;
-int PinCapacitiveSoil=15;
-int PinTasterSelect=16;
-int PinTasterUp=17;
-int PinTasterDown=18;
-int PinTasterEsc=19;
-int dutyCycleLED = 0;
+int PinLED=25; //LED
+int PinCapacitiveSoil=15; //Feuchtigkeitssensor
+int PinTasterSelect=16; //Schalter zum Bestätigen
+int PinTasterUp=17;     //Taster zum Auswählen nach oben
+int PinTasterDown=18;    //Taster zum Auswählen nach unten
+int PinTasterEsc=19;     //Taster zum zurück gehen
+int dutyCycleLED = 0;     //?
 const int freq = 5000;
 const int ledChannel = 0;
 const int resolution = 8;
