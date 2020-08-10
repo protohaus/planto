@@ -1,16 +1,20 @@
 
-//libs, die für das Programm nötig sind
-#include <Arduino.h>
-#include <menu.h>
-#include <menuIO/serialOut.h>
-#include <menuIO/chainStream.h>
-#include <menuIO/serialIn.h>
-#include <menuIO/u8g2Out.h>
-#include <menuIO/softkeyIn.h> 
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include "DHT.h"
-#include <BH1750.h>
+/*
+Benötigte Bibliotheken
+teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen 
+--> Erklärung Versionierung von Bibliotheken, ansprechen von Bibliotheken
+*/
+#include <Arduino.h>            //Ansprechen des Arduinos
+#include <menu.h>               //Menu
+#include <menuIO/serialOut.h>   //Verwendung von standardmäßigem seriellen Output
+#include <menuIO/chainStream.h> //Verbindung von mehreren Input-Streams zu einem
+#include <menuIO/serialIn.h>    //Verwendung von standardmäßigem seriellen Input
+#include <menuIO/u8g2Out.h>     //Nutzung von u8g2 Display
+#include <menuIO/softkeyIn.h>   //generische Schaltflächen
+#include <Wire.h>               //Kommunikation mit I2C
+#include <Adafruit_Sensor.h>    //Basisklasse für viele Sensoren
+#include "DHT.h"                //Feuchtigkeits- und Temperatursensor
+#include <BH1750.h>             //Lichtsensor
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
 #define fontX 7
@@ -21,44 +25,45 @@
 #define U8_Height 64
 #define DHTPIN 32
 #define DHTTYPE DHT11
-//Variablen, die nötig sind, und unsere Hardware ansprechen
-int test = 20;
-int PinLED=25; //LED
-int PinCapacitiveSoil=15; //Feuchtigkeitssensor
-int PinTasterSelect=16; //Schalter zum Bestätigen
-int PinTasterUp=17;     //Taster zum Auswählen nach oben
-int PinTasterDown=18;    //Taster zum Auswählen nach unten
-int PinTasterEsc=19;     //Taster zum zurück gehen
-int dutyCycleLED = 0;     //?
-const int freq = 5000;
-const int ledChannel = 0;
-const int resolution = 8;
-long last_change;
-int duration=5000;
-float h;
-float t;
-int water;
-int hum;
-float light=0.0;
-int counter_warnings=0;
-bool flag_temp=false;
-bool flag_water=false;
-bool flag_hum=false;
-bool flag_light=false;
+/*
+benötigte Variablen,um unsere Hardware ansprechen
+--> Datentypen erläutern
+*/
+int PinCapacitiveSoil=15;     //Pin-Belegung Feuchtigkeitssensor
+long last_change;             //Zeitstempel der letzten Änderung
+int duration=5000;            //Dauer in ms für Displayupdate
+float h;                      //abgefragter Luftfeuchtigkeitswert --> umbennen
+float t;                      //abgefragter Temperaturwert --> umbennen
+int water;                    //abgefragter Wasserstand -->umbennen
+int hum;                      //umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
+float light=0.0;              //abgefragter Lichtwert -->umbennen
+int counter_warnings=0;       //Zähler Fehlermeldungen --> umbennen
+bool flag_temp=false;         //Statuskennzeichen für Temperaturwarnungen
+bool flag_water=false;        //Statuskennzeichen für Wasserwarnungen
+bool flag_hum=false;          //Statuskennzeichen für Luftfeuchtigkeitswarnungen
+bool flag_light=false;        //Statuskennzeichen für Lichtwarnungen
+//Buttons
+int PinTasterSelect=16;       //Schalter zum Bestätigen
+int PinTasterUp=17;           //Taster zum Auswählen nach oben
+int PinTasterDown=18;         //Taster zum Auswählen nach unten
+int PinTasterEsc=19;          //Taster zum zurück gehen
+//Growing-LED
+int PinLED=25;                //Pin-Belegung LED
+int dutyCycleLED = 0;         //Regulierung des PWM Signals --> PWM erläutern
+const int freq = 5000;        //Arduino-PWM-Frequenz ist bei 500Hz (https://www.arduino.cc/en/tutorial/PWM)
+const int ledChannel = 0;     //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten 
+const int resolution = 8;     //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
+//Ventilator
+const int fanPWM=27;          //Pin-Belegung für das PWM-Signal 
+const int fanTacho=26;        //nicht genutzt --> löschen
+int dutyCycleFan = 0;         //Regulierung des PWM-Signals 
+const int fanFreq=25000;      //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz, hier 25kHz
+const int fanResolution=8;    //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
+const int fanChannel=0;       //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten 
 
-const int fanPWM=27; // wird genutzt?
-const int fanTacho=26;
-int dutyCycleFan = 0;
-const int fanFreq=25000;
-const int fanResolution=8; // regeln von 0 bis 255 wg 8Bit
-const int fanChannel=0; //nur intern festgelegt, kann beliebig gewählt werden
-//const int stepwidth=20;
-//const int minSpeed=75;
-//int fanSpeed=minSpeed;
+BH1750 lightMeter(0x5C);      //I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
-BH1750 lightMeter(0x5C);
-
-DHT dht(DHTPIN, DHTTYPE);
+DHT dht(DHTPIN, DHTTYPE);     //Initialisierung des DHT Sensors für Temperatur- und Luftfeuchtigkeit
 
 const colorDef<uint8_t> colors[6] MEMMODE = {
     {{0, 0}, {0, 1, 1}},  // bgColor
@@ -71,12 +76,17 @@ const colorDef<uint8_t> colors[6] MEMMODE = {
 
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
+//Funktionsdeklarieung, damit im Menü direkt darauf zugegriffen werden kann
 result updateGrowLED();
 result warnungen(float licht);
 result updateFan();
 result doAlert(eventMask enterEvent, prompt& item);
 
-//Code für das Menü (extern runter geladene Lib), welche Erklärung wollen wir hier fürs Verständnis geben?
+/*
+Code für das Menü (extern runter geladene Lib)
+Welche Erklärung wollen wir hier fürs Verständnis geben? 
+Idee: in Klasse auslagern, ansonsten kurz Unterschiede von Field und Op erläutern
+*/
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
      FIELD(dutyCycleFan, "Ventilator", " ", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
@@ -87,6 +97,7 @@ MENU_OUTPUTS(out, MAX_DEPTH, U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offse
                       {0, 0, U8_Width / fontX, U8_Height / fontY}),SERIAL_OUT(Serial), NONE //must have 2 items at least
 );
 
+//Funktionsweise der Buttons
 Menu::keyMap joystickBtn_map[] = {
     {-PinTasterSelect, defaultNavCodes[Menu::enterCmd].ch},
     {-PinTasterEsc, defaultNavCodes[Menu::escCmd].ch},
@@ -142,27 +153,17 @@ result alert(menuOut& o, idleEvent e) {
 
   return proceed;
 }
-//Methode zum Updaten der LED
+
+//Methode zur Regelung der LED-Helligkeit
 result updateGrowLED()
 {
   ledcWrite(ledChannel, dutyCycleLED);
   return proceed;
 }
 
-//Methode zum Updaten des fans, warum nochmal ausgegraut?
+//Methode zur Regelung der Ventilator-Geschwindigkeit
 result updateFan()
 {
-  /*
-    for(dutyCycleFan=0; dutyCycleFan<=255; dutyCycleFan++){
-    ledcWrite(fanChannel, dutyCycleFan);
-    delay(15);
-  }
-  for(dutyCycleFan=255; dutyCycleFan>=0; dutyCycleFan--){
-    ledcWrite(fanChannel, dutyCycleFan);
-    delay(15);
-  }
-  */
-  //analogWrite(fanPin, fanSpeed)
   ledcWrite(fanChannel, dutyCycleFan);
   return proceed;
 }
@@ -174,7 +175,11 @@ result doAlert(eventMask e, prompt& item)
   nav.idleOn(alert);
   return proceed;
 }
-//Methode, die die Fehlermeldungen ausgibt
+
+/*
+Methode zur Ausgabe von Fehlermeldungen
+--> Prinzip if/else if/else, Displayausgabe, Funktion map, Abfrage Sensoren, Logik der Flags
+*/
 void warnings(menuOut& o){
     if (dht.readTemperature()<15){
       o.setCursor(0,2);
@@ -237,6 +242,10 @@ void warnings(menuOut& o){
     counter_warnings=flag_water+flag_light+flag_temp+flag_hum;
 }
 
+/*
+Beginn idle
+--> idle erläutern
+*/
 result idleMenu(menuOut& o,idleEvent e) {
   o.clear();
   switch(e) {
@@ -251,7 +260,7 @@ result idleMenu(menuOut& o,idleEvent e) {
 }
 
 
-
+//Methode zum Updaten des Displays
 void updateDisplay() {
   // change checking leaves more time for other tasks
   u8g2.firstPage();
@@ -259,7 +268,12 @@ void updateDisplay() {
     nav.doOutput();
   } while (u8g2.nextPage());
 }
-//Setup des Programms, wird wann immer wiederholt? Einmal und dann nie wieder?
+
+/*
+Setup des Programms
+Einmalige Ausführung zu Beginn
+Initialisierung von Pins, Sensoren etc.
+*/
 void setup()
 {
   ledcSetup(ledChannel, freq, resolution);
@@ -294,10 +308,13 @@ void setup()
     Serial.println(F("Error initialising BH1750"));
   }
 }
-//sich wiederholende Methoden, welche genau
+/*
+Schleife des Programms
+wiederholt sich endlos
+*/
 void loop()
 {
-  light = lightMeter.readLightLevel();
+  light = lightMeter.readLightLevel();    //Abfrage Licht
   delay(150);
 
   if( abs(last_change - millis()) > duration)
