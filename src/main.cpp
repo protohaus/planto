@@ -29,49 +29,55 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 benötigte Variablen,um unsere Hardware ansprechen
 --> Datentypen erläutern
 */
-int PinCapacitiveSoil=15;     //Pin-Belegung Feuchtigkeitssensor
-long last_change;             //Zeitstempel der letzten Änderung
-int duration=5000;            //Dauer in ms für Displayupdate
+int PinCapacitiveSoil = 15;  //Pin-Belegung Feuchtigkeitssensor
+long last_change;            //Zeitstempel der letzten Änderung im Display
+int duration = 5000;         //Dauer in ms für Displayupdate
+int display_timeout = 10000; //Display wechselt in super Menu Modus nach 30 min=18000000ms
+menuNode *last_selected_prompt = nullptr;
+long last_light = 0;
+long last_active_display = 0; //Zeitstempel der letzen Benutzung
 float h;                      //abgefragter Luftfeuchtigkeitswert --> umbennen
 float t;                      //abgefragter Temperaturwert --> umbennen
 int water;                    //abgefragter Wasserstand -->umbennen
 int hum;                      //umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
-float light=0.0;              //abgefragter Lichtwert -->umbennen
-int counter_warnings=0;       //Zähler Fehlermeldungen --> umbennen
-bool flag_temp=false;         //Statuskennzeichen für Temperaturwarnungen
-bool flag_water=false;        //Statuskennzeichen für Wasserwarnungen
-bool flag_hum=false;          //Statuskennzeichen für Luftfeuchtigkeitswarnungen
-bool flag_light=false;        //Statuskennzeichen für Lichtwarnungen
+float light = 0.0;            //abgefragter Lichtwert -->umbennen
+int counter_warnings = 0;     //Zähler Fehlermeldungen --> umbennen
+bool flag_temp = false;       //Statuskennzeichen für Temperaturwarnungen
+bool flag_water = false;      //Statuskennzeichen für Wasserwarnungen
+bool flag_hum = false;        //Statuskennzeichen für Luftfeuchtigkeitswarnungen
+bool flag_light = false;      //Statuskennzeichen für Lichtwarnungen
+bool flag_idling=false;       
+int last_path=0;
 //Buttons
-int PinTasterSelect=16;       //Schalter zum Bestätigen
-int PinTasterUp=17;           //Taster zum Auswählen nach oben
-int PinTasterDown=18;         //Taster zum Auswählen nach unten
-int PinTasterEsc=19;          //Taster zum zurück gehen
+int PinTasterSelect = 16; //Schalter zum Bestätigen
+int PinTasterUp = 17;     //Taster zum Auswählen nach oben
+int PinTasterDown = 18;   //Taster zum Auswählen nach unten
+int PinTasterEsc = 19;    //Taster zum zurück gehen
 //Growing-LED
-int PinLED=25;                //Pin-Belegung LED
-int dutyCycleLED = 0;         //Regulierung des PWM Signals --> PWM erläutern
-const int freq = 5000;        //Arduino-PWM-Frequenz ist bei 500Hz (https://www.arduino.cc/en/tutorial/PWM)
-const int ledChannel = 0;     //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten 
-const int resolution = 8;     //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
+int PinLED = 25;          //Pin-Belegung LED
+int dutyCycleLED = 0;     //Regulierung des PWM Signals --> PWM erläutern
+const int freq = 5000;    //Arduino-PWM-Frequenz ist bei 500Hz (https://www.arduino.cc/en/tutorial/PWM)
+const int ledChannel = 0; //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
+const int resolution = 8; //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
 //Ventilator
-const int fanPWM=27;          //Pin-Belegung für das PWM-Signal 
-const int fanTacho=26;        //nicht genutzt --> löschen
-int dutyCycleFan = 0;         //Regulierung des PWM-Signals 
-const int fanFreq=25000;      //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz, hier 25kHz
-const int fanResolution=8;    //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
-const int fanChannel=0;       //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten 
+const int fanPWM = 27;       //Pin-Belegung für das PWM-Signal
+const int fanTacho = 26;     //nicht genutzt --> löschen
+int dutyCycleFan = 0;        //Regulierung des PWM-Signals
+const int fanFreq = 25000;   //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz, hier 25kHz
+const int fanResolution = 8; //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
+const int fanChannel = 0;    //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
 
-BH1750 lightMeter(0x5C);      //I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
+BH1750 lightMeter(0x5C); //I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
-DHT dht(DHTPIN, DHTTYPE);     //Initialisierung des DHT Sensors für Temperatur- und Luftfeuchtigkeit
+DHT dht(DHTPIN, DHTTYPE); //Initialisierung des DHT Sensors für Temperatur- und Luftfeuchtigkeit
 
 const colorDef<uint8_t> colors[6] MEMMODE = {
-    {{0, 0}, {0, 1, 1}},  // bgColor
-    {{1, 1}, {1, 0, 0}},  // fgColor
-    {{1, 1}, {1, 0, 0}},  // valColor
-    {{1, 1}, {1, 0, 0}},  // unitColor
-    {{0, 1}, {0, 0, 1}},  // cursorColor
-    {{1, 1}, {1, 0, 0}},  // titleColor
+    {{0, 0}, {0, 1, 1}}, // bgColor
+    {{1, 1}, {1, 0, 0}}, // fgColor
+    {{1, 1}, {1, 0, 0}}, // valColor
+    {{1, 1}, {1, 0, 0}}, // unitColor
+    {{0, 1}, {0, 0, 1}}, // cursorColor
+    {{1, 1}, {1, 0, 0}}, // titleColor
 };
 
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
@@ -80,7 +86,7 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 result updateGrowLED();
 result warnungen(float licht);
 result updateFan();
-result doAlert(eventMask enterEvent, prompt& item);
+result doAlert(eventMask enterEvent, prompt &item);
 
 /*
 Code für das Menü (extern runter geladene Lib)
@@ -93,8 +99,7 @@ MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      OP("Messwerte", doAlert, enterEvent),
      EXIT("<Back"));
 
-MENU_OUTPUTS(out, MAX_DEPTH, U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY,
-                      {0, 0, U8_Width / fontX, U8_Height / fontY}),SERIAL_OUT(Serial), NONE //must have 2 items at least
+MENU_OUTPUTS(out, MAX_DEPTH, U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY, {0, 0, U8_Width / fontX, U8_Height / fontY}), SERIAL_OUT(Serial), NONE //must have 2 items at least
 );
 
 //Funktionsweise der Buttons
@@ -108,47 +113,55 @@ Menu::softKeyIn<4> joystickBtns(joystickBtn_map);
 
 serialIn serial(Serial);
 // MENU_INPUTS(in, &serial);
-Menu::menuIn* inputsList[] = {&joystickBtns, &serial};
-Menu::chainStream<2> in(inputsList);  // 2 is the number of inputs
+Menu::menuIn *inputsList[] = {&joystickBtns, &serial};
+Menu::chainStream<2> in(inputsList); // 2 is the number of inputs
 
 NAVROOT(nav, mainMenu, MAX_DEPTH, in, out);
 //Wofür genau ist diese Methode? Was macht sie? Warum ist sie Wichtig? Warum heißt sie alert, wenn sie das Menue zeigt?
-result alert(menuOut& o, idleEvent e) {
-  switch (e) {
-    case Menu::idleStart:  
-      break;
-    case Menu::idling:
-      t = dht.readTemperature();
-      water=map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
-      if (water<0) { water =0; }
-      if (water>100) { water =100; }
-      h = dht.readHumidity();
-      hum=((int)(h*10)) / 10.0;
-      o.setCursor(0, 0);
-      o.print("Temperatur ");
-      o.print(t,1);
-      o.setCursor(16,0);
-      o.print("C");
-      o.setCursor(0,1);
-      o.print("Wasserstand ");
-      o.print(water);
-      o.setCursor(15,1);
-      o.print("%");
-      o.setCursor(0,2);
-      o.print("Feuchtigkeit ");
-      o.print(hum);
-      o.setCursor(16,2);
-      o.print("%");
-      o.setCursor(0,3);
-      o.print("Helligkeit ");
-      o.print(light,0);
-      o.setCursor(15,3);
-      o.print("lx");
-      break;
-    case Menu::idleEnd:
-      break;
-    default:
-      break;
+result alert(menuOut &o, idleEvent e)
+{
+  switch (e)
+  {
+  case Menu::idleStart:
+    break;
+  case Menu::idling:
+    t = dht.readTemperature();
+    water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
+    if (water < 0)
+    {
+      water = 0;
+    }
+    if (water > 100)
+    {
+      water = 100;
+    }
+    h = dht.readHumidity();
+    hum = ((int)(h * 10)) / 10.0;
+    o.setCursor(0, 0);
+    o.print("Temperatur ");
+    o.print(t, 1);
+    o.setCursor(16, 0);
+    o.print("C");
+    o.setCursor(0, 1);
+    o.print("Wasserstand ");
+    o.print(water);
+    o.setCursor(15, 1);
+    o.print("%");
+    o.setCursor(0, 2);
+    o.print("Feuchtigkeit ");
+    o.print(hum);
+    o.setCursor(16, 2);
+    o.print("%");
+    o.setCursor(0, 3);
+    o.print("Helligkeit ");
+    o.print(light, 0);
+    o.setCursor(15, 3);
+    o.print("lx");
+    break;
+  case Menu::idleEnd:
+    break;
+  default:
+    break;
   }
 
   return proceed;
@@ -170,7 +183,7 @@ result updateFan()
 
 //Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder Funktionalität zum menue?
 
-result doAlert(eventMask e, prompt& item) 
+result doAlert(eventMask e, prompt &item)
 {
   nav.idleOn(alert);
   return proceed;
@@ -180,91 +193,115 @@ result doAlert(eventMask e, prompt& item)
 Methode zur Ausgabe von Fehlermeldungen
 --> Prinzip if/else if/else, Displayausgabe, Funktion map, Abfrage Sensoren, Logik der Flags
 */
-void warnings(menuOut& o){
-    if (dht.readTemperature()<15){
-      o.setCursor(0,2);
-      o.println("zu kalt");
-      flag_temp=true;
-    }
-    else if (dht.readTemperature()>30){
-      o.setCursor(0,2);
-      o.println("zu warm");
-      flag_temp=true;
-    }
-    else {
-      flag_temp=false;
-    }
-    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10){
-      o.setCursor(0,1);
-      o.println("zu wenig Wasser");
-      flag_water=true;
-    }
-    else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95){
-      o.setCursor(0,1);
-      o.println("zu viel Wasser");
-      flag_water=true;
-    }
-    else {
-      flag_water=false;
-    }
-    if (dht.readHumidity()<15){
-      o.setCursor(0,3);
-      o.println("Luft ist zu trocken");
-      flag_hum=true;
-    }
-    else if (dht.readHumidity()>70){
-      o.setCursor(0,3);
-      o.println("zu feucht");
-      flag_hum=true;
-    }
-    else {
-      flag_hum=false;
-    }
-    if(lightMeter.readLightLevel()>2000){
-      o.setCursor(0,0);
-      o.println("zu viel Licht");
-      flag_light=true;
-    } 
-    else if(lightMeter.readLightLevel()<50){
-      o.setCursor(0,0);
-      o.println("zu wenig Licht");
-      flag_light=true;
-    }
-    else {
-      flag_light=false;
-    }
-    if(flag_hum==false && flag_light==false && flag_water==false && flag_water==false){
-      o.setCursor(0,1);
-      o.println("Die Pflanze ist");
-      o.setCursor(0,2);
-      o.println("gut versorgt :)");
-    }
-    counter_warnings=flag_water+flag_light+flag_temp+flag_hum;
+void warnings(menuOut &o)
+{
+  if (dht.readTemperature() < 15)
+  {
+    o.setCursor(0, 2);
+    o.println("zu kalt");
+    flag_temp = true;
+  }
+  else if (dht.readTemperature() > 30)
+  {
+    o.setCursor(0, 2);
+    o.println("zu warm");
+    flag_temp = true;
+  }
+  else
+  {
+    flag_temp = false;
+  }
+  if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10)
+  {
+    o.setCursor(0, 1);
+    o.println("zu wenig Wasser");
+    flag_water = true;
+  }
+  else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95)
+  {
+    o.setCursor(0, 1);
+    o.println("zu viel Wasser");
+    flag_water = true;
+  }
+  else
+  {
+    flag_water = false;
+  }
+  if (dht.readHumidity() < 15)
+  {
+    o.setCursor(0, 3);
+    o.println("Luft ist zu trocken");
+    flag_hum = true;
+  }
+  else if (dht.readHumidity() > 70)
+  {
+    o.setCursor(0, 3);
+    o.println("zu feucht");
+    flag_hum = true;
+  }
+  else
+  {
+    flag_hum = false;
+  }
+  if (lightMeter.readLightLevel() > 2000)
+  {
+    o.setCursor(0, 0);
+    o.println("zu viel Licht");
+    flag_light = true;
+  }
+  else if (lightMeter.readLightLevel() < 50)
+  {
+    o.setCursor(0, 0);
+    o.println("zu wenig Licht");
+    flag_light = true;
+  }
+  else
+  {
+    flag_light = false;
+  }
+  if (flag_hum == false && flag_light == false && flag_water == false && flag_water == false)
+  {
+    o.setCursor(0, 1);
+    o.println("Die Pflanze ist");
+    o.setCursor(0, 2);
+    o.println("gut versorgt :)");
+  }
+  counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
 }
 
 /*
 Beginn idle
 --> idle erläutern
 */
-result idleMenu(menuOut& o,idleEvent e) {
+result idleMenu(menuOut &o, idleEvent e)
+{
   o.clear();
-  switch(e) {
-    case idleStart:o.println("suspending menu!");break;
-    case idling:
+  switch (e)
+  {
+  case idleStart:
+    o.println("suspending menu!");
+    flag_idling=true;
+    break;
+  case idling:
     o.clear();
     warnings(o);
-    break; 
-    case idleEnd:o.println("resuming menu.");break;
+    break;
+  case idleEnd:
+    o.println("resuming menu.");
+    flag_idling=false;
+    last_active_display=millis();
+    break;
   }
   return proceed;
 }
 
-
 //Methode zum Updaten des Displays
-void updateDisplay() {
+void updateDisplay()
+{
   // change checking leaves more time for other tasks
   u8g2.firstPage();
-  do {
+  do
+  {
     nav.doOutput();
   } while (u8g2.nextPage());
 }
@@ -296,17 +333,21 @@ void setup()
 
   ledcAttachPin(fanPWM, fanChannel);
 
-  nav.idleTask=idleMenu;
+  nav.idleTask = idleMenu;
 
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial)
+    ;
 
-  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE))
+  {
     Serial.println(F("BH1750 Advanced begin"));
   }
-  else {
+  else
+  {
     Serial.println(F("Error initialising BH1750"));
   }
+  
 }
 /*
 Schleife des Programms
@@ -314,22 +355,34 @@ wiederholt sich endlos
 */
 void loop()
 {
-  light = lightMeter.readLightLevel();    //Abfrage Licht
+  light = lightMeter.readLightLevel(); //Abfrage Licht
   delay(150);
 
-  if( abs(last_change - millis()) > duration)
+  if (abs(last_change - millis()) > duration)
   {
-    last_change=millis();
-    nav.idleChanged=true;
+    last_change = millis();
+    nav.idleChanged = true;
     nav.refresh();
   }
 
   nav.doInput();
 
-  if (nav.changed(0)){
+  if (nav.changed(0))
+  {
     updateDisplay();
   }
   nav.doOutput();
+
+  if(last_path != nav.path->sel)
+  {
+    last_path=nav.path->sel;
+    last_active_display=millis();
+  }
+
+  if(flag_idling==false  && labs(last_active_display-millis()) > display_timeout)
+  {
+    nav.idleOn(idleMenu);
+  }
 
 }
 
@@ -337,4 +390,4 @@ void loop()
 //code verständlich den Kindern näher bringen können? Durch das vorgegebene Menü ist das ja jetzt nicht so super
 //easy nachzuvollziehen...
 //Was fehlt hier jetzt noch?
-//Wo können wir welche erledigten Aufgaben hinter schreiben? (Energieersparnis, Ansteuerung xy-Sensor etc.) 
+//Wo können wir welche erledigten Aufgaben hinter schreiben? (Energieersparnis, Ansteuerung xy-Sensor etc.)
