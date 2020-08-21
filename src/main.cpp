@@ -13,8 +13,9 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <menuIO/softkeyIn.h>   //generische Schaltflächen
 #include <Wire.h>               //Kommunikation mit I2C
 #include <Adafruit_Sensor.h>    //Basisklasse für viele Sensoren
-#include "DHT.h"                //Feuchtigkeits- und Temperatursensor
+#include <DHT.h>               //Feuchtigkeits- und Temperatursensor
 #include <BH1750.h>             //Lichtsensor
+#include "fan.h"
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
 #define fontX 7
@@ -60,12 +61,15 @@ const int freq = 5000;    //Arduino-PWM-Frequenz ist bei 500Hz (https://www.ardu
 const int ledChannel = 0; //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
 const int resolution = 8; //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
 //Ventilator
+/*
 const int fanPWM = 27;       //Pin-Belegung für das PWM-Signal
 const int fanTacho = 26;     //nicht genutzt --> löschen
 int dutyCycleFan = 0;        //Regulierung des PWM-Signals
 const int fanFreq = 25000;   //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz, hier 25kHz
 const int fanResolution = 8; //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
 const int fanChannel = 0;    //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
+*/
+planto::Fan fan;
 
 BH1750 lightMeter(0x5C); //I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
@@ -95,7 +99,7 @@ Idee: in Klasse auslagern, ansonsten kurz Unterschiede von Field und Op erläute
 */
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
-     FIELD(dutyCycleFan, "Ventilator", " ", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
+     FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan, eventMask::exitEvent, noStyle),
      OP("Messwerte", doAlert, enterEvent),
      EXIT("<Back"));
 
@@ -177,7 +181,7 @@ result updateGrowLED()
 //Methode zur Regelung der Ventilator-Geschwindigkeit
 result updateFan()
 {
-  ledcWrite(fanChannel, dutyCycleFan);
+  fan.updateSpeed();
   return proceed;
 }
 
@@ -326,12 +330,7 @@ void setup()
   pinMode(PinTasterDown, INPUT_PULLUP);
   pinMode(PinTasterEsc, INPUT_PULLUP);
 
-  pinMode(fanPWM, OUTPUT);
-  pinMode(fanTacho, INPUT);
-
-  ledcSetup(fanChannel, fanFreq, fanResolution);
-
-  ledcAttachPin(fanPWM, fanChannel);
+  fan.init();
 
   nav.idleTask = idleMenu;
 
