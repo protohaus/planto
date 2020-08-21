@@ -1,10 +1,11 @@
-# planto
-Ein automatisiertes Mini-Gewächshaus für Kids zum Lernen und Wachsen
+# Planto
+
+Ein automatisiertes Mini-Gewächshaus für Kids zum Lernen und Wachsen.
 
 Bisher gibt es nur die main-Datei, in welcher verschiedene Funktionalitäten übernommen werden können: 
 
--Das Menü für den OLED Display und eine Taster Schaltung 
--eine integrierte Wasser-Feuchtigkeitsmessung
--eine Pumpe 
+- Das Menü für den OLED Display und eine Taster Schaltung 
+- eine integrierte Wasser-Feuchtigkeitsmessung
+- eine Pumpe 
 
-Davon soll für den Planto zukünftig das Menü übernommen werden, die FUnktionalitäten sind jedoch andere...
+Davon soll für den Planto zukünftig das Menü übernommen werden, die Funktionalitäten sind jedoch andere...
