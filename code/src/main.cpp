@@ -16,6 +16,8 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <DHT.h>               //Feuchtigkeits- und Temperatursensor
 #include <BH1750.h>             //Lichtsensor
 #include "fan.h"
+
+//Parameter für das Display und das Menü
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
 #define fontX 7
@@ -24,6 +26,8 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #define offsetY 3
 #define U8_Width 128
 #define U8_Height 64
+
+//für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur 
 #define DHTPIN 32
 #define DHTTYPE DHT11
 /*
@@ -37,11 +41,13 @@ int display_timeout = 10000; //Display wechselt in super Menu Modus nach 30 min=
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0; //Zeitstempel der letzen Benutzung
+//Messwerte
 float h;                      //abgefragter Luftfeuchtigkeitswert --> umbennen
 float t;                      //abgefragter Temperaturwert --> umbennen
 int water;                    //abgefragter Wasserstand -->umbennen
 int hum;                      //umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
 float light = 0.0;            //abgefragter Lichtwert -->umbennen
+//Bool-Variablen als Flags für Fehlermeldungen 
 int counter_warnings = 0;     //Zähler Fehlermeldungen --> umbennen
 bool flag_temp = false;       //Statuskennzeichen für Temperaturwarnungen
 bool flag_water = false;      //Statuskennzeichen für Wasserwarnungen
@@ -69,12 +75,14 @@ const int fanFreq = 25000;   //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz,
 const int fanResolution = 8; //Auflösung in Bits von 0 bis 32, bei 8-Bit (Standard) erhält man Werte von 0-255
 const int fanChannel = 0;    //Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
 */
+//Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
 planto::Fan fan;
 
 BH1750 lightMeter(0x5C); //I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
 DHT dht(DHTPIN, DHTTYPE); //Initialisierung des DHT Sensors für Temperatur- und Luftfeuchtigkeit
 
+//Display
 const colorDef<uint8_t> colors[6] MEMMODE = {
     {{0, 0}, {0, 1, 1}}, // bgColor
     {{1, 1}, {1, 0, 0}}, // fgColor
@@ -87,15 +95,15 @@ const colorDef<uint8_t> colors[6] MEMMODE = {
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 //Funktionsdeklarieung, damit im Menü direkt darauf zugegriffen werden kann
+// --> Hierarchie/Struktur von Programmen
 result updateGrowLED();
 result warnungen(float licht);
 result updateFan();
 result doAlert(eventMask enterEvent, prompt &item);
 
 /*
-Code für das Menü (extern runter geladene Lib)
-Welche Erklärung wollen wir hier fürs Verständnis geben? 
-Idee: in Klasse auslagern, ansonsten kurz Unterschiede von Field und Op erläutern
+Code für das Menü (extern runter geladene Lib) 
+kurz Unterschiede von Field und Op erläutern (https://github.com/neu-rah/ArduinoMenu/wiki/Menu-definition)
 */
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED, eventMask::exitEvent, noStyle),
