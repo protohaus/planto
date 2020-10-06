@@ -247,6 +247,7 @@ void warnings(menuOut &o)
   {
     flag_hum = false;
   }
+  /*
   if (lightMeter.readLightLevel() > 2000)
   {
     o.setCursor(0, 0);
@@ -263,7 +264,11 @@ void warnings(menuOut &o)
   {
     flag_light = false;
   }
-  if (flag_hum == false && flag_light == false && flag_water == false && flag_water == false)
+  */
+
+  //unten einfügen: && flag_light == false
+  //aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen Fehlermeldung nicht berücksichtigen
+  if (flag_hum == false  && flag_water == false && flag_water == false)
   {
     o.setCursor(0, 1);
     o.println("Die Pflanze ist");
@@ -357,6 +362,9 @@ void loop()
   light = lightMeter.readLightLevel(); //Abfrage Licht
   delay(150);
 
+  //Aktualisierung in Zeitintervall
+  //aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
+  //eine höhere Zeitspanne reduziert den Energieverbrauch
   if (abs(last_change - millis()) > duration)
   {
     last_change = millis();
