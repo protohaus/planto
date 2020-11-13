@@ -99,7 +99,7 @@ DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
 // const char *password = "PH-Wlan-2016#";
 //const char *ssid = "FRITZ!Box 7520 FJ 2-4";
 //const char *password = "75113949923584998220";
-const char *ssid_n = "Protohaus-Villa";
+const char *ssid_n = "Protohaus_Villa";
 const char *password_n = "PH-Wlan-2018#";
 
 // Set web server port number to 80
