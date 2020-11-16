@@ -40,9 +40,9 @@ benötigte Variablen,um unsere Hardware ansprechen
 */
 int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
 long last_change;            // Zeitstempel der letzten Änderung im Display
-int duration = 5000;         // Dauer in ms für Displayupdate
+int duration = 30000;        // Dauer in ms für Displayupdate
 int display_timeout =
-    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+    30000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0;  // Zeitstempel der letzen Benutzung
@@ -99,8 +99,8 @@ DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
 // const char *password = "PH-Wlan-2016#";
 // const char *ssid = "FRITZ!Box 7520 FJ 2-4";
 // const char *password = "75113949923584998220";
- const char *ssid = "Protohaus_Villa";
- const char *password = "PH-Wlan-2018#";
+const char *ssid = "Protohaus_Villa";
+const char *password = "PH-Wlan-2018#";
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -467,18 +467,26 @@ void loop() {
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // turns the GPIOs on and off
-            if (header.indexOf("GET /led/on") >= 0)
-            {
+            // turns the LED & Fan on and off
+            if (header.indexOf("GET /led/on") >= 0) {
               Serial.println("LED on");
               outputLed = "on";
-              ledcWrite(ledChannel, 255); 
-            }
-            else if (header.indexOf("GET /led/off") >= 0)
-            {
+              ledcWrite(ledChannel, 255);
+            } else if (header.indexOf("GET /led/off") >= 0) {
               Serial.println("LED off");
               outputLed = "off";
               ledcWrite(ledChannel, 0);
+            }
+
+            if (header.indexOf("GET /fan/on") >= 0) {
+              Serial.println("Fan on");
+              outputFan = "on";
+              //fan.updateSpeed(fan.fanChannel_, 255);
+              //ledcWrite(fan.fanChannel_, 255);
+            } else if (header.indexOf("GET /fan/off") >= 0) {
+              Serial.println("Fan off");
+              outputFan = "off";
+              //ledcWrite(fan.fanChannel_, 0);
             }
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
@@ -509,16 +517,29 @@ void loop() {
             client.println("</body></html>");
 
             // Display current state, and ON/OFF buttons for GPIO 26
-            //client.println("<p>LED" + outputLed + "</p>");
+            // client.println("<p>LED" + outputLed + "</p>");
             client.println("<p>LED </p>");
             // If the output26State is off, it displays the ON button
-            if (outputLed == "off")
-            {
-              client.println("<p><a href=\"/led/on\"><button class=\"button\">ON</button></a></p>");
+            if (outputLed == "off") {
+              client.println(
+                  "<p><a href=\"/led/on\"><button "
+                  "class=\"button\">ON</button></a></p>");
+            } else {
+              client.println(
+                  "<p><a href=\"/led/off\"><button class=\"button "
+                  "button2\">OFF</button></a></p>");
             }
-            else
-            {
-              client.println("<p><a href=\"/led/off\"><button class=\"button button2\">OFF</button></a></p>");
+
+            client.println("<p>Ventilator </p>");
+            // If the output26State is off, it displays the ON button
+            if (outputFan == "off") {
+              client.println(
+                  "<p><a href=\"/fan/on\"><button "
+                  "class=\"button\">ON</button></a></p>");
+            } else {
+              client.println(
+                  "<p><a href=\"/fan/off\"><button class=\"button "
+                  "button2\">OFF</button></a></p>");
             }
 
             // The HTTP response ends with another blank line
