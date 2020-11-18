@@ -60,7 +60,7 @@ bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 bool flag_idling = false;
 int last_path = 0;
-bool warningout = false //Flag um zu gucken ob es nachts ist und demnach besser die Warnungen aus sind 
+bool warningout = false; //Flag um zu gucken ob es nachts ist und demnach besser die Warnungen aus sind 
 // Buttons
 int PinTasterSelect = 16;  // Schalter zum Bestätigen
 int PinTasterUp = 17;      // Taster zum Auswählen nach oben
@@ -250,68 +250,73 @@ Methode zur Ausgabe von Fehlermeldungen
 Logik der Flags
 */
 void warnings(menuOut &o) {
-  if (dht.readTemperature() < 15) {
-    o.setCursor(0, 2);
-    o.println("zu kalt");
-    flag_temp = true;
-  } else if (dht.readTemperature() > 30) {
-    o.setCursor(0, 2);
-    o.println("zu warm");
-    flag_temp = true;
-  } else {
-    flag_temp = false;
-  }
-  if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
-    o.setCursor(0, 1);
-    o.println("zu wenig Wasser");
-    flag_water = true;
-  } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
-    o.setCursor(0, 1);
-    o.println("zu viel Wasser");
-    flag_water = true;
-  } else {
-    flag_water = false;
-  }
-  if (dht.readHumidity() < 15) {
-    o.setCursor(0, 3);
-    o.println("Luft ist zu trocken");
-    flag_hum = true;
-  } else if (dht.readHumidity() > 70) {
-    o.setCursor(0, 3);
-    o.println("zu feucht");
-    flag_hum = true;
-  } else {
-    flag_hum = false;
-  }
-  /*
-  if (lightMeter.readLightLevel() > 2000)
-  {
-    o.setCursor(0, 0);
-    o.println("zu viel Licht");
-    flag_light = true;
-  }
-  else if (lightMeter.readLightLevel() < 50)
-  {
-    o.setCursor(0, 0);
-    o.println("zu wenig Licht");
-    flag_light = true;
-  }
-  else
-  {
-    flag_light = false;
-  }
-  */
+  if (warningout == false){
+    if (dht.readTemperature() < 15) {
+      o.setCursor(0, 2);
+      o.println("zu kalt");
+      flag_temp = true;
+    } else if (dht.readTemperature() > 30) {
+      o.setCursor(0, 2);
+      o.println("zu warm");
+      flag_temp = true;
+    } else {
+      flag_temp = false;
+    }
+    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
+      o.setCursor(0, 1);
+      o.println("zu wenig Wasser");
+      flag_water = true;
+    } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
+      o.setCursor(0, 1);
+      o.println("zu viel Wasser");
+      flag_water = true;
+    } else {
+      flag_water = false;
+    }
+    if (dht.readHumidity() < 15) {
+      o.setCursor(0, 3);
+      o.println("Luft ist zu trocken");
+      flag_hum = true;
+    } else if (dht.readHumidity() > 70) {
+      o.setCursor(0, 3);
+      o.println("zu feucht");
+      flag_hum = true;
+    } else {
+      flag_hum = false;
+    }
+    /*
+    if (lightMeter.readLightLevel() > 2000)
+    {
+      o.setCursor(0, 0);
+      o.println("zu viel Licht");
+      flag_light = true;
+    }
+    else if (lightMeter.readLightLevel() < 50)
+    {
+      o.setCursor(0, 0);
+      o.println("zu wenig Licht");
+      flag_light = true;
+    }
+    else
+    {
+      flag_light = false;
+    }
+    */
 
-  // unten einfügen: && flag_light == false
-  // aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen
-  // Fehlermeldung nicht berücksichtigen
-  if (flag_hum == false && flag_water == false && flag_water == false) {
-    o.setCursor(0, 1);
-    o.println("Die Pflanze ist");
-    o.setCursor(0, 2);
-    o.println("gut versorgt :)");  
+    // unten einfügen: && flag_light == false
+    // aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen
+    // Fehlermeldung nicht berücksichtigen
+    if (flag_hum == false && flag_water == false && flag_water == false) {
+      o.setCursor(0, 1);
+      o.println("Die Pflanze ist");
+      o.setCursor(0, 2);
+      o.println("gut versorgt :)");  
+    }
+    counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
   }
-  counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
+  else if(warningout == true){
+    Serial.println("es ist nachts, es werden keine Warnungen angezeit Zzzzzzzzz"); 
+  }  
 }
 
 /*
@@ -439,6 +444,9 @@ void loop() {
     if (ledon == true){
       turnoffLED(); 
     }
+  }
+  if(thistime >= 17 && thistime <= 7){
+    warningout = true; 
   }
     
   // Aktualisierung in Zeitintervall
