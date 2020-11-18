@@ -60,6 +60,7 @@ bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 bool flag_idling = false;
 int last_path = 0;
+bool warningout = false //Flag um zu gucken ob es nachts ist und demnach besser die Warnungen aus sind 
 // Buttons
 int PinTasterSelect = 16;  // Schalter zum Bestätigen
 int PinTasterUp = 17;      // Taster zum Auswählen nach oben
@@ -347,17 +348,18 @@ void updateDisplay() {
 }
 
 //Methode um LED via Zeit anschalten
-//ggf. dann auch die Helligkeit im Menü ändern? So dass man dann auch noch
-//heller oder dunkler ändern kann?
+
 void turnonLED(){
   ledon = true; 
-  ledcWrite(ledChannel, 100);
+  dutyCycleLED=100; 
+  ledcWrite(ledChannel, dutyCycleLED);
   Serial.println("LED on"); 
 }
 
 //Methode um LED via Zeit auszuschalten
 void turnoffLED(){
-  ledcWrite(ledChannel, 0);
+  dutyCycleLED=0; 
+  ledcWrite(ledChannel, dutyCycleLED);
   Serial.println("LED off"); 
 }
 
@@ -381,8 +383,6 @@ void setup() {
   pinMode(PinTasterEsc, INPUT_PULLUP);
 
   fan.init();
-
-  
 
   nav.idleTask = idleMenu;
 
