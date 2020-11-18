@@ -19,7 +19,9 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
 
 #include "fan.h"  //Klasse für den Ventilator
-//#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
+
+#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
+
 
 // Parameter für das Display und das Menü
 #define MAX_DEPTH 1
@@ -40,9 +42,11 @@ benötigte Variablen,um unsere Hardware ansprechen
 */
 int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
 long last_change;            // Zeitstempel der letzten Änderung im Display
-int duration = 30000;        // Dauer in ms für Displayupdate
+
+int duration = 30000;         // Dauer in ms für Displayupdate
 int display_timeout =
-    30000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0;  // Zeitstempel der letzen Benutzung
@@ -60,6 +64,9 @@ bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 bool flag_idling = false;
 int last_path = 0;
+
+bool warningout = false; //Flag um zu gucken ob es nachts ist und demnach besser die Warnungen aus sind 
+
 // Buttons
 int PinTasterSelect = 16;  // Schalter zum Bestätigen
 int PinTasterUp = 17;      // Taster zum Auswählen nach oben
@@ -95,10 +102,10 @@ DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
 
 // WiFi-Verbindung
 // Replace with your network credentials
-// const char *ssid = "PROTOHAUS";
-// const char *password = "PH-Wlan-2016#";
-// const char *ssid = "FRITZ!Box 7520 FJ 2-4";
-// const char *password = "75113949923584998220";
+//const char *ssid = "PROTOHAUS";
+//const char *password = "PH-Wlan-2016#";
+//const char *ssid = "FRITZ!Box 7520 FJ 2-4";
+//const char *password = "75113949923584998220";
 const char *ssid = "Protohaus_Villa";
 const char *password = "PH-Wlan-2018#";
 
@@ -108,9 +115,11 @@ WiFiServer server(80);
 // Variable to store the HTTP request
 String header;
 
+
 // Auxiliar variables to store the current output state
 String outputLed = "off";
 String outputFan = "off";
+
 
 // Current time
 unsigned long currentTime = millis();
@@ -123,8 +132,12 @@ const long timeoutTime = 2000;
 // Zeitverschiebung UTC <-> MEZ (Sommerzeit) = 7200 Sekunden (2 Stunden)
 const long utcOffsetInSeconds = 3600;
 
+int thistime = 0; 
+boolean ledon = false; 
+boolean manualled = true;
 WiFiUDP ntpUDP;
-// NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
 
 // Display
 const colorDef<uint8_t> colors[6] MEMMODE = {
@@ -251,68 +264,73 @@ Methode zur Ausgabe von Fehlermeldungen
 Logik der Flags
 */
 void warnings(menuOut &o) {
-  if (dht.readTemperature() < 15) {
-    o.setCursor(0, 2);
-    o.println("zu kalt");
-    flag_temp = true;
-  } else if (dht.readTemperature() > 30) {
-    o.setCursor(0, 2);
-    o.println("zu warm");
-    flag_temp = true;
-  } else {
-    flag_temp = false;
-  }
-  if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
-    o.setCursor(0, 1);
-    o.println("zu wenig Wasser");
-    flag_water = true;
-  } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
-    o.setCursor(0, 1);
-    o.println("zu viel Wasser");
-    flag_water = true;
-  } else {
-    flag_water = false;
-  }
-  if (dht.readHumidity() < 15) {
-    o.setCursor(0, 3);
-    o.println("Luft ist zu trocken");
-    flag_hum = true;
-  } else if (dht.readHumidity() > 70) {
-    o.setCursor(0, 3);
-    o.println("zu feucht");
-    flag_hum = true;
-  } else {
-    flag_hum = false;
-  }
-  /*
-  if (lightMeter.readLightLevel() > 2000)
-  {
-    o.setCursor(0, 0);
-    o.println("zu viel Licht");
-    flag_light = true;
-  }
-  else if (lightMeter.readLightLevel() < 50)
-  {
-    o.setCursor(0, 0);
-    o.println("zu wenig Licht");
-    flag_light = true;
-  }
-  else
-  {
-    flag_light = false;
-  }
-  */
+  if (warningout == false){
+    if (dht.readTemperature() < 15) {
+      o.setCursor(0, 2);
+      o.println("zu kalt");
+      flag_temp = true;
+    } else if (dht.readTemperature() > 30) {
+      o.setCursor(0, 2);
+      o.println("zu warm");
+      flag_temp = true;
+    } else {
+      flag_temp = false;
+    }
+    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
+      o.setCursor(0, 1);
+      o.println("zu wenig Wasser");
+      flag_water = true;
+    } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
+      o.setCursor(0, 1);
+      o.println("zu viel Wasser");
+      flag_water = true;
+    } else {
+      flag_water = false;
+    }
+    if (dht.readHumidity() < 15) {
+      o.setCursor(0, 3);
+      o.println("Luft ist zu trocken");
+      flag_hum = true;
+    } else if (dht.readHumidity() > 70) {
+      o.setCursor(0, 3);
+      o.println("zu feucht");
+      flag_hum = true;
+    } else {
+      flag_hum = false;
+    }
+    /*
+    if (lightMeter.readLightLevel() > 2000)
+    {
+      o.setCursor(0, 0);
+      o.println("zu viel Licht");
+      flag_light = true;
+    }
+    else if (lightMeter.readLightLevel() < 50)
+    {
+      o.setCursor(0, 0);
+      o.println("zu wenig Licht");
+      flag_light = true;
+    }
+    else
+    {
+      flag_light = false;
+    }
+    */
 
-  // unten einfügen: && flag_light == false
-  // aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen
-  // Fehlermeldung nicht berücksichtigen
-  if (flag_hum == false && flag_water == false && flag_water == false) {
-    o.setCursor(0, 1);
-    o.println("Die Pflanze ist");
-    o.setCursor(0, 2);
-    o.println("gut versorgt :)");
+    // unten einfügen: && flag_light == false
+    // aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen
+    // Fehlermeldung nicht berücksichtigen
+    if (flag_hum == false && flag_water == false && flag_water == false) {
+      o.setCursor(0, 1);
+      o.println("Die Pflanze ist");
+      o.setCursor(0, 2);
+      o.println("gut versorgt :)");  
+    }
+    counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
   }
-  counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
+  else if(warningout == true){
+    Serial.println("es ist nachts, es werden keine Warnungen angezeit Zzzzzzzzz"); 
+  }  
 }
 
 /*
@@ -346,6 +364,22 @@ void updateDisplay() {
   do {
     nav.doOutput();
   } while (u8g2.nextPage());
+}
+
+//Methode um LED via Zeit anschalten
+
+void turnonLED(){
+  ledon = true; 
+  dutyCycleLED=100; 
+  ledcWrite(ledChannel, dutyCycleLED);
+  Serial.println("LED on"); 
+}
+
+//Methode um LED via Zeit auszuschalten
+void turnoffLED(){
+  dutyCycleLED=0; 
+  ledcWrite(ledChannel, dutyCycleLED);
+  Serial.println("LED off"); 
 }
 
 /*
@@ -384,7 +418,7 @@ void setup() {
   }
 
   // Connect to Wi-Fi network with SSID and password
-  Serial.print("Connecting to  ");
+  Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -397,6 +431,8 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   server.begin();
+
+  timeClient.begin();
 }
 /*
 Schleife des Programms
@@ -409,10 +445,32 @@ void loop() {
   WiFiClient client = server.available();  // Listen for incoming clients
 
   // Abfrage der Uhrzeit (s.o. Winter- und Sommerzeit manuell einstellbat)
+
+  timeClient.update();
+  //Serial.print(daysOfTheWeek[timeClient.getDay()]); (Wenn man Tag haben möchte)
+  
+  thistime = timeClient.getHours(); 
+  if(thistime >= 16 && thistime <= 18){
+    Serial.print("HourTime: ");
+    Serial.println(thistime);
+    if (ledon == false){
+      turnonLED(); 
+    }  
+  }
+  else if (thistime = 19){
+    if (ledon == true){
+      turnoffLED(); 
+    }
+  }
+  if(thistime >= 17 && thistime <= 7){
+    warningout = true; 
+  }
+    
   // timeClient.update();
   // Serial.print(daysOfTheWeek[timeClient.getDay()]);
   // Serial.print(", ");
   // Serial.println(timeClient.getFormattedTime());
+
 
   // Aktualisierung in Zeitintervall
   // aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
@@ -455,7 +513,6 @@ void loop() {
         char c = client.read();  // read a byte, then
         Serial.write(c);         // print it out the serial monitor
         header += c;
-        digitalWrite(PinLED, HIGH);
         if (c == '\n') {  // if the byte is a newline character
           // if the current line is blank, you got two newline characters in a
           // row. that's the end of the client HTTP request, so send a response:
