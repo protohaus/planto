@@ -538,13 +538,14 @@ void loop() {
             if (header.indexOf("GET /fan/on") >= 0) {
               Serial.println("Fan on");
               outputFan = "on";
-              //fan.updateSpeed(fan.fanChannel_, 255);
-              //ledcWrite(fan.fanChannel_, 255);
+              // fan.updateSpeed(fan.fanChannel_, 255);
+              // ledcWrite(fan.fanChannel_, 255);
             } else if (header.indexOf("GET /fan/off") >= 0) {
               Serial.println("Fan off");
               outputFan = "off";
-              //ledcWrite(fan.fanChannel_, 0);
+              // ledcWrite(fan.fanChannel_, 0);
             }
+
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
             client.println(
@@ -571,6 +572,23 @@ void loop() {
 
             // Web Page Heading
             client.println("<body><h1>Planto Web Server</h1>");
+            client.println("<p> Temperatur</p>");
+            client.println(String("<p>") + dht.readTemperature() + " C</p>");
+            client.println("<p> Wasserstand </p>");
+            water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
+            if (water < 0) {
+              water = 0;
+            }
+            if (water > 100) {
+              water = 100;
+            }
+            client.println(String("<p>") + water + " %</p>");
+            client.println("<p> Luftfeuchtigkeit </p>");
+            h = dht.readHumidity();
+            hum = ((int)(h * 10)) / 10.0;
+            client.println(String("<p>") + hum + " % </p>");
+            client.println("<p> Helligkeit </p>");
+            client.println(String("<p>") + light + " lx </p>");
             client.println("</body></html>");
 
             // Display current state, and ON/OFF buttons for GPIO 26
