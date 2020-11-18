@@ -4,6 +4,7 @@ Benötigte Bibliotheken
 teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen 
 --> Erklärung Versionierung von Bibliotheken, ansprechen von Bibliotheken
 */
+<<<<<<< Updated upstream
 #include <Arduino.h>            //Ansprechen des Arduinos
 #include <menu.h>               //Menu
 #include <menuIO/serialOut.h>   //Verwendung von standardmäßigem seriellen Output
@@ -18,6 +19,26 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include "fan.h"
 
 //Parameter für das Display und das Menü
+=======
+#include <Adafruit_Sensor.h>     //Basisklasse für viele Sensoren
+#include <Arduino.h>             //Ansprechen des Arduinos
+#include <BH1750.h>              //Lichtsensor
+#include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
+#include <WiFi.h>                //WiFi-Verbindung
+#include <WiFiUdp.h>             //Uhrzeitabfrage über WiFi
+#include <Wire.h>                //Kommunikation mit I2C
+#include <menu.h>                //Menu
+#include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
+#include <menuIO/serialIn.h>  //Verwendung von standardmäßigem seriellen Input
+#include <menuIO/serialOut.h>  //Verwendung von standardmäßigem seriellen Output
+#include <menuIO/softkeyIn.h>  //generische Schaltflächen
+#include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
+
+#include "fan.h"  //Klasse für den Ventilator
+#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
+
+// Parameter für das Display und das Menü
+>>>>>>> Stashed changes
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
 #define fontX 7
@@ -34,10 +55,18 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 benötigte Variablen,um unsere Hardware ansprechen
 --> Datentypen erläutern
 */
+<<<<<<< Updated upstream
 int PinCapacitiveSoil = 15;  //Pin-Belegung Feuchtigkeitssensor
 long last_change;            //Zeitstempel der letzten Änderung im Display
 int duration = 5000;         //Dauer in ms für Displayupdate
 int display_timeout = 10000; //Display wechselt in super Menu Modus nach 30 min=18000000ms
+=======
+int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
+long last_change;            // Zeitstempel der letzten Änderung im Display
+int duration = 30000;         // Dauer in ms für Displayupdate
+int display_timeout =
+    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+>>>>>>> Stashed changes
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0; //Zeitstempel der letzen Benutzung
@@ -82,7 +111,42 @@ BH1750 lightMeter(0x5C); //I2C Adresse für den Lichtsensor, häufig 0x23, sonst
 
 DHT dht(DHTPIN, DHTTYPE); //Initialisierung des DHT Sensors für Temperatur- und Luftfeuchtigkeit
 
+<<<<<<< Updated upstream
 //Display
+=======
+// WiFi-Verbindung
+// Replace with your network credentials
+//const char *ssid = "PROTOHAUS";
+//const char *password = "PH-Wlan-2016#";
+//const char *ssid = "FRITZ!Box 7520 FJ 2-4";
+//const char *password = "75113949923584998220";
+const char *ssid = "Protohaus_Villa";
+const char *password = "PH-Wlan-2018#";
+
+// Set web server port number to 80
+WiFiServer server(80);
+
+// Variable to store the HTTP request
+String header;
+
+// Current time
+unsigned long currentTime = millis();
+// Previous time
+unsigned long previousTime = 0;
+// Define timeout time in milliseconds (example: 2000ms = 2s)
+const long timeoutTime = 2000;
+
+// Zeitverschiebung UTC <-> MEZ (Winterzeit) = 3600 Sekunden (1 Stunde)
+// Zeitverschiebung UTC <-> MEZ (Sommerzeit) = 7200 Sekunden (2 Stunden)
+const long utcOffsetInSeconds = 3600;
+int thistime = 0; 
+boolean ledon = false; 
+boolean manualled = true;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
+// Display
+>>>>>>> Stashed changes
 const colorDef<uint8_t> colors[6] MEMMODE = {
     {{0, 0}, {0, 1, 1}}, // bgColor
     {{1, 1}, {1, 0, 0}}, // fgColor
@@ -281,7 +345,7 @@ void warnings(menuOut &o)
     o.setCursor(0, 1);
     o.println("Die Pflanze ist");
     o.setCursor(0, 2);
-    o.println("gut versorgt :)");
+    o.println("gut versorgt :)");  
   }
   counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
 }
@@ -323,6 +387,21 @@ void updateDisplay()
   } while (u8g2.nextPage());
 }
 
+//Methode um LED via Zeit anschalten
+//ggf. dann auch die Helligkeit im Menü ändern? So dass man dann auch noch
+//heller oder dunkler ändern kann?
+void turnonLED(){
+  ledon = true; 
+  ledcWrite(ledChannel, 100);
+  Serial.println("LED on"); 
+}
+
+//Methode um LED via Zeit auszuschalten
+void turnoffLED(){
+  ledcWrite(ledChannel, 0);
+  Serial.println("LED off"); 
+}
+
 /*
 Setup des Programms
 Einmalige Ausführung zu Beginn
@@ -345,6 +424,11 @@ void setup()
 
   fan.init();
 
+<<<<<<< Updated upstream
+=======
+  
+
+>>>>>>> Stashed changes
   nav.idleTask = idleMenu;
 
   Serial.begin(115200);
@@ -355,11 +439,31 @@ void setup()
   {
     Serial.println(F("BH1750 Advanced begin"));
   }
+<<<<<<< Updated upstream
   else
   {
     Serial.println(F("Error initialising BH1750"));
   }
   
+=======
+
+  // Connect to Wi-Fi network with SSID and password
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  // Print local IP address and start web server
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+  server.begin();
+
+  timeClient.begin();
+>>>>>>> Stashed changes
 }
 /*
 Schleife des Programms
@@ -370,11 +474,38 @@ void loop()
   light = lightMeter.readLightLevel(); //Abfrage Licht
   delay(150);
 
+<<<<<<< Updated upstream
   //Aktualisierung in Zeitintervall
   //aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
   //eine höhere Zeitspanne reduziert den Energieverbrauch
   if (abs(last_change - millis()) > duration)
   {
+=======
+  WiFiClient client = server.available();  // Listen for incoming clients
+
+  // Abfrage der Uhrzeit (s.o. Winter- und Sommerzeit manuell einstellbat)
+  timeClient.update();
+  //Serial.print(daysOfTheWeek[timeClient.getDay()]); (Wenn man Tag haben möchte)
+  
+  thistime = timeClient.getHours(); 
+  if(thistime >= 16 && thistime <= 18){
+    Serial.print("HourTime: ");
+    Serial.println(thistime);
+    if (ledon == false){
+      turnonLED(); 
+    }  
+  }
+  else if (thistime = 19){
+    if (ledon == true){
+      turnoffLED(); 
+    }
+  }
+    
+  // Aktualisierung in Zeitintervall
+  // aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
+  // eine höhere Zeitspanne reduziert den Energieverbrauch
+  if (abs(last_change - millis()) > duration) {
+>>>>>>> Stashed changes
     last_change = millis();
     nav.idleChanged = true;
     nav.refresh();
