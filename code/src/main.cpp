@@ -101,12 +101,8 @@ DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
 
 // WiFi-Verbindung
 // Replace with your network credentials
-// const char *ssid = "PROTOHAUS";
-// const char *password = "PH-Wlan-2016#";
-// const char *ssid = "FRITZ!Box 7520 FJ 2-4";
-// const char *password = "75113949923584998220";
-const char *ssid = "PROTOHAUS";
-const char *password = "PH-Wlan-2016#";
+const char *ssid = "";
+const char *password = "";
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -241,6 +237,11 @@ result alert(menuOut &o, idleEvent e) {
 // Methode zur Regelung der LED-Helligkeit
 result updateGrowLED() {
   ledcWrite(ledChannel, dutyCycleLED);
+  if (dutyCycleLED > 0) {
+    outputLed = "on";
+  } else {
+    outputLed = "off";
+  }
   return proceed;
 }
 
