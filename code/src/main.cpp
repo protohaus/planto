@@ -481,7 +481,7 @@ void loop() {
     if (ledon == false) {
       turnonLED();
     }
-  } else if (thistime = 19) {
+  } else if (thistime == 19) {
     if (ledon == true) {
       turnoffLED();
     }
