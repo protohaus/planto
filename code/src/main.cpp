@@ -237,11 +237,13 @@ result alert(menuOut &o, idleEvent e) {
 // Methode zur Regelung der LED-Helligkeit
 result updateGrowLED() {
   ledcWrite(ledChannel, dutyCycleLED);
+
   if (dutyCycleLED > 0) {
     outputLed = "on";
   } else {
     outputLed = "off";
   }
+
   return proceed;
 }
 
@@ -267,6 +269,7 @@ Logik der Flags
 void warnings(menuOut &o) {
   if (warningout == false) {
     ledcWriteTone(channel_buzzer, 2000);
+    ledcWrite(channel_buzzer, 0);
     if (dht.readTemperature() < 15) {
       o.setCursor(0, 2);
       o.println("zu kalt");
@@ -284,7 +287,7 @@ void warnings(menuOut &o) {
     if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
       o.setCursor(0, 1);
       o.println("zu wenig Wasser");
-      ledcWrite(channel_buzzer, 75);
+      // ledcWrite(channel_buzzer, 75);
       flag_water = true;
     } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
       o.setCursor(0, 1);
@@ -549,10 +552,12 @@ void loop() {
               Serial.println("LED on");
               outputLed = "on";
               ledcWrite(ledChannel, 255);
+              dutyCycleLED = 255;
             } else if (header.indexOf("GET /led/off") >= 0) {
               Serial.println("LED off");
               outputLed = "off";
               ledcWrite(ledChannel, 0);
+              dutyCycleLED = 0;
             }
 
             if (header.indexOf("GET /fan/on") >= 0) {
