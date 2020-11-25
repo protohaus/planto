@@ -8,6 +8,7 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <Arduino.h>             //Ansprechen des Arduinos
 #include <BH1750.h>              //Lichtsensor
 #include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
+#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
 #include <WiFi.h>                //WiFi-Verbindung
 #include <WiFiUdp.h>             //Uhrzeitabfrage über WiFi
 #include <Wire.h>                //Kommunikation mit I2C
@@ -19,9 +20,6 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
 
 #include "fan.h"  //Klasse für den Ventilator
-
-#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
-
 
 // Parameter für das Display und das Menü
 #define MAX_DEPTH 1
@@ -43,7 +41,7 @@ benötigte Variablen,um unsere Hardware ansprechen
 int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
 long last_change;            // Zeitstempel der letzten Änderung im Display
 
-int duration = 30000;         // Dauer in ms für Displayupdate
+int duration = 30000;  // Dauer in ms für Displayupdate
 int display_timeout =
     10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
 
@@ -65,7 +63,8 @@ bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 bool flag_idling = false;
 int last_path = 0;
 
-bool warningout = false; //Flag um zu gucken ob es nachts ist und demnach besser die Warnungen aus sind 
+bool warningout = false;  // Flag um zu gucken ob es nachts ist und demnach
+                          // besser die Warnungen aus sind
 
 // Buttons
 int PinTasterSelect = 16;  // Schalter zum Bestätigen
@@ -102,12 +101,8 @@ DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
 
 // WiFi-Verbindung
 // Replace with your network credentials
-//const char *ssid = "PROTOHAUS";
-//const char *password = "PH-Wlan-2016#";
-//const char *ssid = "FRITZ!Box 7520 FJ 2-4";
-//const char *password = "75113949923584998220";
-const char *ssid = "Protohaus_Villa";
-const char *password = "PH-Wlan-2018#";
+const char *ssid = "";
+const char *password = "";
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -115,11 +110,9 @@ WiFiServer server(80);
 // Variable to store the HTTP request
 String header;
 
-
 // Auxiliar variables to store the current output state
 String outputLed = "off";
 String outputFan = "off";
-
 
 // Current time
 unsigned long currentTime = millis();
@@ -132,12 +125,15 @@ const long timeoutTime = 2000;
 // Zeitverschiebung UTC <-> MEZ (Sommerzeit) = 7200 Sekunden (2 Stunden)
 const long utcOffsetInSeconds = 3600;
 
-int thistime = 0; 
-boolean ledon = false; 
+int thistime = 0;
+boolean ledon = false;
 boolean manualled = true;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
 
+int freq_buzzer = 2000;
+int channel_buzzer = 1;
+int resolution_buzzer = 8;
 
 // Display
 const colorDef<uint8_t> colors[6] MEMMODE = {
@@ -241,6 +237,13 @@ result alert(menuOut &o, idleEvent e) {
 // Methode zur Regelung der LED-Helligkeit
 result updateGrowLED() {
   ledcWrite(ledChannel, dutyCycleLED);
+
+  if (dutyCycleLED > 0) {
+    outputLed = "on";
+  } else {
+    outputLed = "off";
+  }
+
   return proceed;
 }
 
@@ -264,38 +267,49 @@ Methode zur Ausgabe von Fehlermeldungen
 Logik der Flags
 */
 void warnings(menuOut &o) {
-  if (warningout == false){
+  if (warningout == false) {
+    ledcWriteTone(channel_buzzer, 2000);
+    ledcWrite(channel_buzzer, 0);
     if (dht.readTemperature() < 15) {
       o.setCursor(0, 2);
       o.println("zu kalt");
+      ledcWrite(channel_buzzer, 75);
       flag_temp = true;
     } else if (dht.readTemperature() > 30) {
       o.setCursor(0, 2);
       o.println("zu warm");
+      ledcWrite(channel_buzzer, 75);
       flag_temp = true;
     } else {
+      ledcWrite(channel_buzzer, 0);
       flag_temp = false;
     }
     if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
       o.setCursor(0, 1);
       o.println("zu wenig Wasser");
+      // ledcWrite(channel_buzzer, 75);
       flag_water = true;
     } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
       o.setCursor(0, 1);
       o.println("zu viel Wasser");
+      ledcWrite(channel_buzzer, 75);
       flag_water = true;
     } else {
+      ledcWrite(channel_buzzer, 0);
       flag_water = false;
     }
     if (dht.readHumidity() < 15) {
       o.setCursor(0, 3);
       o.println("Luft ist zu trocken");
+      ledcWrite(channel_buzzer, 50);
       flag_hum = true;
     } else if (dht.readHumidity() > 70) {
       o.setCursor(0, 3);
       o.println("zu feucht");
+      ledcWrite(channel_buzzer, 75);
       flag_hum = true;
     } else {
+      ledcWrite(channel_buzzer, 0);
       flag_hum = false;
     }
     /*
@@ -303,16 +317,19 @@ void warnings(menuOut &o) {
     {
       o.setCursor(0, 0);
       o.println("zu viel Licht");
+      ledcWrite(channel_buzzer, 75);
       flag_light = true;
     }
     else if (lightMeter.readLightLevel() < 50)
     {
       o.setCursor(0, 0);
       o.println("zu wenig Licht");
+      ledcWrite(channel_buzzer, 75);
       flag_light = true;
     }
     else
     {
+      ledcWrite(channel_buzzer, 0);
       flag_light = false;
     }
     */
@@ -324,13 +341,17 @@ void warnings(menuOut &o) {
       o.setCursor(0, 1);
       o.println("Die Pflanze ist");
       o.setCursor(0, 2);
-      o.println("gut versorgt :)");  
+      o.println("gut versorgt :)");
+      ledcWriteTone(channel_buzzer, 2000);
+      ledcWrite(channel_buzzer, 0);
     }
     counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
+  } else if (warningout == true) {
+    Serial.println(
+        "es ist nachts, es werden keine Warnungen angezeit Zzzzzzzzz");
+    ledcWriteTone(channel_buzzer, 2000);
+    ledcWrite(channel_buzzer, 0);
   }
-  else if(warningout == true){
-    Serial.println("es ist nachts, es werden keine Warnungen angezeit Zzzzzzzzz"); 
-  }  
 }
 
 /*
@@ -366,20 +387,20 @@ void updateDisplay() {
   } while (u8g2.nextPage());
 }
 
-//Methode um LED via Zeit anschalten
+// Methode um LED via Zeit anschalten
 
-void turnonLED(){
-  ledon = true; 
-  dutyCycleLED=100; 
+void turnonLED() {
+  ledon = true;
+  dutyCycleLED = 100;
   ledcWrite(ledChannel, dutyCycleLED);
-  Serial.println("LED on"); 
+  Serial.println("LED on");
 }
 
-//Methode um LED via Zeit auszuschalten
-void turnoffLED(){
-  dutyCycleLED=0; 
+// Methode um LED via Zeit auszuschalten
+void turnoffLED() {
+  dutyCycleLED = 0;
   ledcWrite(ledChannel, dutyCycleLED);
-  Serial.println("LED off"); 
+  Serial.println("LED off");
 }
 
 /*
@@ -433,6 +454,9 @@ void setup() {
   server.begin();
 
   timeClient.begin();
+
+  ledcSetup(channel_buzzer, freq_buzzer, resolution_buzzer);
+  ledcAttachPin(33, channel_buzzer);
 }
 /*
 Schleife des Programms
@@ -447,30 +471,29 @@ void loop() {
   // Abfrage der Uhrzeit (s.o. Winter- und Sommerzeit manuell einstellbat)
 
   timeClient.update();
-  //Serial.print(daysOfTheWeek[timeClient.getDay()]); (Wenn man Tag haben möchte)
-  
-  thistime = timeClient.getHours(); 
-  if(thistime >= 16 && thistime <= 18){
+  // Serial.print(daysOfTheWeek[timeClient.getDay()]); (Wenn man Tag haben
+  // möchte)
+
+  thistime = timeClient.getHours();
+  if (thistime >= 16 && thistime <= 18) {
     Serial.print("HourTime: ");
     Serial.println(thistime);
-    if (ledon == false){
-      turnonLED(); 
-    }  
-  }
-  else if (thistime = 19){
-    if (ledon == true){
-      turnoffLED(); 
+    if (ledon == false) {
+      turnonLED();
+    }
+  } else if (thistime = 19) {
+    if (ledon == true) {
+      turnoffLED();
     }
   }
-  if(thistime >= 17 && thistime <= 7){
-    warningout = true; 
+  if (thistime >= 17 && thistime <= 7) {
+    warningout = true;
   }
-    
+
   // timeClient.update();
   // Serial.print(daysOfTheWeek[timeClient.getDay()]);
   // Serial.print(", ");
   // Serial.println(timeClient.getFormattedTime());
-
 
   // Aktualisierung in Zeitintervall
   // aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
@@ -529,10 +552,12 @@ void loop() {
               Serial.println("LED on");
               outputLed = "on";
               ledcWrite(ledChannel, 255);
+              dutyCycleLED = 255;
             } else if (header.indexOf("GET /led/off") >= 0) {
               Serial.println("LED off");
               outputLed = "off";
               ledcWrite(ledChannel, 0);
+              dutyCycleLED = 0;
             }
 
             if (header.indexOf("GET /fan/on") >= 0) {
