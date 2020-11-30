@@ -21,6 +21,8 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 
 #include "fan.h"  //Klasse für den Ventilator
 
+#include "secrets.h"
+
 // Parameter für das Display und das Menü
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
@@ -98,11 +100,6 @@ BH1750 lightMeter(
 
 DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
                            // und Luftfeuchtigkeit
-
-// WiFi-Verbindung
-// Replace with your network credentials
-const char *ssid = "";
-const char *password = "";
 
 // Set web server port number to 80
 WiFiServer server(80);
