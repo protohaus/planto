@@ -4,34 +4,18 @@ Benötigte Bibliotheken
 teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 --> Erklärung Versionierung von Bibliotheken, ansprechen von Bibliotheken
 */
-#include <Adafruit_Sensor.h>     //Basisklasse für viele Sensoren
-#include <Arduino.h>             //Ansprechen des Arduinos
-#include <BH1750.h>              //Lichtsensor
-#include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
-#include <NTPClient.h>           //Uhrzeitabfrage über WiFi
-#include <WiFi.h>                //WiFi-Verbindung
-#include <WiFiUdp.h>             //Uhrzeitabfrage über WiFi
-#include <Wire.h>                //Kommunikation mit I2C
-#include <menu.h>                //Menu
-#include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
-#include <menuIO/serialIn.h>  //Verwendung von standardmäßigem seriellen Input
-#include <menuIO/serialOut.h>  //Verwendung von standardmäßigem seriellen Output
-#include <menuIO/softkeyIn.h>  //generische Schaltflächen
-#include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
+#include <Adafruit_Sensor.h>  //Basisklasse für viele Sensoren
+#include <Arduino.h>          //Ansprechen des Arduinos
+#include <BH1750.h>           //Lichtsensor
+#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
+#include <NTPClient.h>        //Uhrzeitabfrage über WiFi
+#include <WiFi.h>             //WiFi-Verbindung
+#include <WiFiUdp.h>          //Uhrzeitabfrage über WiFi
+#include <Wire.h>             //Kommunikation mit I2C
+#include <planto_menu.h>
 
 #include "fan.h"  //Klasse für den Ventilator
-
 #include "secrets.h"
-
-// Parameter für das Display und das Menü
-#define MAX_DEPTH 1
-#define fontName u8g2_font_7x13_mf
-#define fontX 7
-#define fontY 16
-#define offsetX 0
-#define offsetY 3
-#define U8_Width 128
-#define U8_Height 64
 
 // für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
 #define DHTPIN 32
@@ -43,13 +27,6 @@ benötigte Variablen,um unsere Hardware ansprechen
 int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
 long last_change;            // Zeitstempel der letzten Änderung im Display
 
-int duration = 30000;  // Dauer in ms für Displayupdate
-int display_timeout =
-    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
-
-menuNode *last_selected_prompt = nullptr;
-long last_light = 0;
-long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 // Messwerte
 float h;    // abgefragter Luftfeuchtigkeitswert --> umbennen
 float t;    // abgefragter Temperaturwert --> umbennen
@@ -62,20 +39,14 @@ bool flag_temp = false;    // Statuskennzeichen für Temperaturwarnungen
 bool flag_water = false;   // Statuskennzeichen für Wasserwarnungen
 bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
-bool flag_idling = false;
 int last_path = 0;
 
 bool warningout = false;  // Flag um zu gucken ob es nachts ist und demnach
                           // besser die Warnungen aus sind
 
-// Buttons
-int PinTasterSelect = 16;  // Schalter zum Bestätigen
-int PinTasterUp = 17;      // Taster zum Auswählen nach oben
-int PinTasterDown = 18;    // Taster zum Auswählen nach unten
-int PinTasterEsc = 19;     // Taster zum zurück gehen
 // Growing-LED
-int PinLED = 25;           // Pin-Belegung LED
-int dutyCycleLED = 0;      // Regulierung des PWM Signals --> PWM erläutern
+int PinLED = 25;  // Pin-Belegung LED
+// int dutyCycleLED = 0;      // Regulierung des PWM Signals --> PWM erläutern
 const int freq = 5000;     // Arduino-PWM-Frequenz ist bei 500Hz
                            // (https://www.arduino.cc/en/tutorial/PWM)
 const int ledChannel = 0;  // Vergebung eines internen Channels, beliebig
@@ -132,60 +103,15 @@ int freq_buzzer = 2000;
 int channel_buzzer = 1;
 int resolution_buzzer = 8;
 
-// Display
-const colorDef<uint8_t> colors[6] MEMMODE = {
-    {{0, 0}, {0, 1, 1}},  // bgColor
-    {{1, 1}, {1, 0, 0}},  // fgColor
-    {{1, 1}, {1, 0, 0}},  // valColor
-    {{1, 1}, {1, 0, 0}},  // unitColor
-    {{0, 1}, {0, 0, 1}},  // cursorColor
-    {{1, 1}, {1, 0, 0}},  // titleColor
-};
-
-U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
-
 // Funktionsdeklarieung, damit im Menü direkt darauf zugegriffen werden kann
 // --> Hierarchie/Struktur von Programmen
 result updateGrowLED();
-result warnungen(float licht);
 result updateFan();
 result doAlert(eventMask enterEvent, prompt &item);
 
-/*
-Code für das Menü (extern runter geladene Lib)
-kurz Unterschiede von Field und Op erläutern
-(https://github.com/neu-rah/ArduinoMenu/wiki/Menu-definition)
-*/
-MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
-     FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, updateGrowLED,
-           eventMask::exitEvent, noStyle),
-     FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan,
-           eventMask::exitEvent, noStyle),
-     OP("Messwerte", doAlert, enterEvent), EXIT("<Back"));
-
-MENU_OUTPUTS(out, MAX_DEPTH,
-             U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY,
-                      {0, 0, U8_Width / fontX, U8_Height / fontY}),
-             SERIAL_OUT(Serial), NONE  // must have 2 items at least
-);
-
-// Funktionsweise der Buttons
-Menu::keyMap joystickBtn_map[] = {
-    {-PinTasterSelect, defaultNavCodes[Menu::enterCmd].ch},
-    {-PinTasterEsc, defaultNavCodes[Menu::escCmd].ch},
-    {-PinTasterUp, defaultNavCodes[Menu::upCmd].ch},
-    {-PinTasterDown, defaultNavCodes[Menu::downCmd].ch},
-};
-Menu::softKeyIn<4> joystickBtns(joystickBtn_map);
-
-serialIn serial(Serial);
-// MENU_INPUTS(in, &serial);
-Menu::menuIn *inputsList[] = {&joystickBtns, &serial};
-Menu::chainStream<2> in(inputsList);  // 2 is the number of inputs
-
-NAVROOT(nav, mainMenu, MAX_DEPTH, in, out);
 // Wofür genau ist diese Methode? Was macht sie? Warum ist sie Wichtig? Warum
 // heißt sie alert, wenn sie das Menue zeigt?
+/*
 result alert(menuOut &o, idleEvent e) {
   switch (e) {
     case Menu::idleStart:
@@ -229,9 +155,10 @@ result alert(menuOut &o, idleEvent e) {
   }
 
   return proceed;
-}
+}*/
 
 // Methode zur Regelung der LED-Helligkeit
+
 result updateGrowLED() {
   ledcWrite(ledChannel, dutyCycleLED);
 
@@ -245,6 +172,7 @@ result updateGrowLED() {
 }
 
 // Methode zur Regelung der Ventilator-Geschwindigkeit
+
 result updateFan() {
   fan.updateSpeed();
   return proceed;
@@ -254,7 +182,7 @@ result updateFan() {
 // Funktionalität zum menue?
 
 result doAlert(eventMask e, prompt &item) {
-  nav.idleOn(alert);
+  // nav.idleOn(alert);
   return proceed;
 }
 
@@ -351,39 +279,6 @@ void warnings(menuOut &o) {
   }
 }
 
-/*
-Beginn idle
---> idle erläutern
-*/
-result idleMenu(menuOut &o, idleEvent e) {
-  o.clear();
-  switch (e) {
-    case idleStart:
-      o.println("suspending menu!");
-      flag_idling = true;
-      break;
-    case idling:
-      o.clear();
-      warnings(o);
-      break;
-    case idleEnd:
-      o.println("resuming menu.");
-      flag_idling = false;
-      last_active_display = millis();
-      break;
-  }
-  return proceed;
-}
-
-// Methode zum Updaten des Displays
-void updateDisplay() {
-  // change checking leaves more time for other tasks
-  u8g2.firstPage();
-  do {
-    nav.doOutput();
-  } while (u8g2.nextPage());
-}
-
 // Methode um LED via Zeit anschalten
 
 void turnonLED() {
@@ -423,7 +318,8 @@ void setup() {
 
   // timeClient.begin();
 
-  nav.idleTask = idleMenu;
+  // nav.idleTask = planto::idleMenu;
+  nav.idleTask = planto::idleMenu;
 
   Serial.begin(115200);
   while (!Serial)
@@ -434,6 +330,10 @@ void setup() {
   } else {
     Serial.println(F("Error initialising BH1750"));
   }
+
+  planto::menuService.SetGrowLEDCallback(updateGrowLED);
+  planto::menuService.SetFanCallback(updateFan);
+  planto::menuService.SetDoAlertCallback(doAlert);
 
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Connecting to ");
@@ -512,11 +412,11 @@ void loop() {
     last_path = nav.path->sel;
     last_active_display = millis();
   }
-
-  if (flag_idling == false &&
-      labs(last_active_display - millis()) > display_timeout) {
-    nav.idleOn(idleMenu);
-  }
+  /*
+    if (flag_idling == false &&
+        labs(last_active_display - millis()) > display_timeout) {
+      nav.idleOn(idleMenu);
+    }*/
 
   if (client) {  // If a new client connects,
     currentTime = millis();
