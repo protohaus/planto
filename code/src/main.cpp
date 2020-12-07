@@ -17,22 +17,16 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include "fan.h"  //Klasse für den Ventilator
 #include "secrets.h"
 
-// für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
-#define DHTPIN 32
-#define DHTTYPE DHT11
 /*
 benötigte Variablen,um unsere Hardware ansprechen
 --> Datentypen erläutern
 */
-int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
+
 long last_change;            // Zeitstempel der letzten Änderung im Display
 
 // Messwerte
-float h;    // abgefragter Luftfeuchtigkeitswert --> umbennen
-float t;    // abgefragter Temperaturwert --> umbennen
-int water;  // abgefragter Wasserstand -->umbennen
-int hum;    // umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
-float light = 0.0;  // abgefragter Lichtwert -->umbennen
+
+float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
 // Bool-Variablen als Flags für Fehlermeldungen
 int counter_warnings = 0;  // Zähler Fehlermeldungen --> umbennen
 bool flag_temp = false;    // Statuskennzeichen für Temperaturwarnungen
@@ -65,13 +59,6 @@ hier 25kHz const int fanResolution = 8; //Auflösung in Bits von 0 bis 32, bei
 */
 // Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
 planto::Fan fan;
-
-BH1750 lightMeter(
-    0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
-
-DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
-                           // und Luftfeuchtigkeit
-
 // Set web server port number to 80
 WiFiServer server(80);
 
@@ -108,54 +95,8 @@ int resolution_buzzer = 8;
 result updateGrowLED();
 result updateFan();
 result doAlert(eventMask enterEvent, prompt &item);
+void warnings(menuOut &o);
 
-// Wofür genau ist diese Methode? Was macht sie? Warum ist sie Wichtig? Warum
-// heißt sie alert, wenn sie das Menue zeigt?
-/*
-result alert(menuOut &o, idleEvent e) {
-  switch (e) {
-    case Menu::idleStart:
-      break;
-    case Menu::idling:
-      t = dht.readTemperature();
-      water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
-      if (water < 0) {
-        water = 0;
-      }
-      if (water > 100) {
-        water = 100;
-      }
-      h = dht.readHumidity();
-      hum = ((int)(h * 10)) / 10.0;
-      o.setCursor(0, 0);
-      o.print("Temperatur ");
-      o.print(t, 1);
-      o.setCursor(16, 0);
-      o.print("C");
-      o.setCursor(0, 1);
-      o.print("Wasserstand ");
-      o.print(water);
-      o.setCursor(15, 1);
-      o.print("%");
-      o.setCursor(0, 2);
-      o.print("Feuchtigkeit ");
-      o.print(hum);
-      o.setCursor(16, 2);
-      o.print("%");
-      o.setCursor(0, 3);
-      o.print("Helligkeit ");
-      o.print(light, 0);
-      o.setCursor(15, 3);
-      o.print("lx");
-      break;
-    case Menu::idleEnd:
-      break;
-    default:
-      break;
-  }
-
-  return proceed;
-}*/
 
 // Methode zur Regelung der LED-Helligkeit
 
@@ -182,7 +123,7 @@ result updateFan() {
 // Funktionalität zum menue?
 
 result doAlert(eventMask e, prompt &item) {
-  // nav.idleOn(alert);
+  nav.idleOn(alert);
   return proceed;
 }
 
@@ -319,7 +260,7 @@ void setup() {
   // timeClient.begin();
 
   // nav.idleTask = planto::idleMenu;
-  nav.idleTask = planto::idleMenu;
+  nav.idleTask = idleMenu;
 
   Serial.begin(115200);
   while (!Serial)
@@ -334,6 +275,7 @@ void setup() {
   planto::menuService.SetGrowLEDCallback(updateGrowLED);
   planto::menuService.SetFanCallback(updateFan);
   planto::menuService.SetDoAlertCallback(doAlert);
+  planto::menuService.SetWarningsCallback(warnings); 
 
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Connecting to ");
@@ -360,7 +302,7 @@ Schleife des Programms
 wiederholt sich endlos
 */
 void loop() {
-  light = lightMeter.readLightLevel();  // Abfrage Licht
+  setuplight = lightMeter.readLightLevel();  // Abfrage Licht
   delay(150);
 
   WiFiClient client = server.available();  // Listen for incoming clients
@@ -412,11 +354,11 @@ void loop() {
     last_path = nav.path->sel;
     last_active_display = millis();
   }
-  /*
+  
     if (flag_idling == false &&
         labs(last_active_display - millis()) > display_timeout) {
       nav.idleOn(idleMenu);
-    }*/
+    }
 
   if (client) {  // If a new client connects,
     currentTime = millis();
