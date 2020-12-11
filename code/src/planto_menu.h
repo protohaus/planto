@@ -1,12 +1,12 @@
 #include <Arduino.h>
+#include <BH1750.h>              //Lichtsensor
+#include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
 #include <menu.h>                //Menu
 #include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
 #include <menuIO/serialIn.h>  //Verwendung von standardmäßigem seriellen Input
 #include <menuIO/serialOut.h>  //Verwendung von standardmäßigem seriellen Output
 #include <menuIO/softkeyIn.h>  //generische Schaltflächen
 #include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
-#include <BH1750.h>           //Lichtsensor
-#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
 
 #include <functional>
 
@@ -24,7 +24,7 @@
 #define DHTPIN 32
 #define DHTTYPE DHT11
 int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
-int duration = 30000;  // Dauer in ms für Displayupdate
+int duration = 30000;        // Dauer in ms für Displayupdate
 int display_timeout =
     10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
 
@@ -80,7 +80,6 @@ class MenuService {
   std::function<result(eventMask, prompt &)> do_alert_callback_;
   // std::function<result(menuOut &, idleEvent)> idle_menu_callback_;
   std::function<void(menuOut &)> warnings_callback_;
- 
 };
 MenuService menuService;
 
@@ -116,12 +115,20 @@ int dutyCycleLED = 0;
            eventMask::exitEvent, noStyle),*/
 int dummy = 2;
 
+int drehzahl=0;
+
+TOGGLE(drehzahl,dirFanMenu,"Ventilator: ",doNothing,noEvent,wrapStyle
+  ,VALUE("an",1,planto::updateFanLink,noEvent)
+  ,VALUE("aus",0,planto::updateFanLink,noEvent)
+);
+
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, planto::updateGrowLEDLink,
            eventMask::exitEvent, noStyle),
-     FIELD(dummy, "Ventilator", " ", 0, 255, 25, 10, planto::updateFanLink,
-           eventMask::exitEvent, noStyle),
-     OP("Messwerte", planto::doAlertLink, enterEvent), EXIT("<Back"));
+     /*FIELD(dummy, "Ventilator", " ", 0, 1, 1, 1, planto::updateFanLink,
+           eventMask::exitEvent, noStyle),*/
+     SUBMENU(dirFanMenu), OP("Messwerte", planto::doAlertLink, enterEvent),
+     EXIT("<Back"));
 
 MENU_OUTPUTS(out, MAX_DEPTH,
              U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY,
@@ -213,7 +220,7 @@ result idleMenu(menuOut &o, idleEvent e) {
       break;
     case idling:
       o.clear();
-      planto::menuService.warnings_callback_(o); 
+      planto::menuService.warnings_callback_(o);
       break;
     case idleEnd:
       o.println("resuming menu.");
