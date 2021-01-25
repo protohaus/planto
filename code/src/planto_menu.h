@@ -10,6 +10,8 @@
 
 #include <functional>
 
+#include "fan.h"  //Klasse für den Ventilator
+
 // Parameter für das Display und das Menü
 #define MAX_DEPTH 1
 #define fontName u8g2_font_7x13_mf
@@ -23,22 +25,25 @@
 // für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
 #define DHTPIN 32
 #define DHTTYPE DHT11
-int PinCapacitiveSoil = 15;  // Pin-Belegung Feuchtigkeitssensor
-int duration = 30000;        // Dauer in ms für Displayupdate
+int PinCapacitiveSoil = 35;  // Pin-Belegung Feuchtigkeitssensor
+int duration = 500;        // Dauer in ms für Displayupdate
 int display_timeout =
-    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+    20000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
 
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 
-bool flag_idling = false;
+bool flag_idling = false; 
 
 BH1750 lightMeter(
     0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
 DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
                            // und Luftfeuchtigkeit
+
+// Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
+planto::Fan fan;
 
 // Messwerte
 float h;    // abgefragter Luftfeuchtigkeitswert --> umbennen
@@ -48,11 +53,12 @@ int hum;    // umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
 float light = 0.0;  // abgefragter Lichtwert -->umbennen
 
 // Buttons
-int PinTasterSelect = 16;  // Schalter zum Bestätigen
-int PinTasterUp = 17;      // Taster zum Auswählen nach oben
-int PinTasterDown = 18;    // Taster zum Auswählen nach unten
-int PinTasterEsc = 19;     // Taster zum zurück gehen
+int PinTasterSelect = 5;  // Schalter zum Bestätigen
+int PinTasterUp = 17;     // Taster zum Auswählen nach oben
+int PinTasterDown = 19;   // Taster zum Auswählen nach unten
+int PinTasterEsc = 18;    // Taster zum zurück gehen
 
+result idleIPAdress(menuOut &o, idleEvent e);
 // Klasse
 namespace planto {
 
@@ -67,19 +73,22 @@ class MenuService {
   void SetDoAlertCallback(std::function<result(eventMask, prompt &)> callback) {
     do_alert_callback_ = callback;
   }
-  /*void SetIdleMenuCallback(
-      std::function<result(menuOut &, idleEvent)> callback) {
-    idle_menu_callback_ = callback;
-  }*/
   void SetWarningsCallback(std::function<void(menuOut &)> callback) {
     warnings_callback_ = callback;
+  }
+  void SetIPAdresseCallback(std::function<void(menuOut &)> callback) {
+    ipadress_callback_ = callback; 
+  }
+  void SetDoAlertIPAdress(std::function<result(eventMask, prompt &)> callback){
+    do_alert_ipadress_callback_ = callback; 
   }
 
   std::function<result()> grow_led_callback_;
   std::function<result()> fan_callback_;
   std::function<result(eventMask, prompt &)> do_alert_callback_;
-  // std::function<result(menuOut &, idleEvent)> idle_menu_callback_;
   std::function<void(menuOut &)> warnings_callback_;
+  std::function<void(menuOut &)> ipadress_callback_; 
+  std::function<result(eventMask, prompt &)> do_alert_ipadress_callback_; 
 };
 MenuService menuService;
 
@@ -89,6 +98,9 @@ result updateGrowLEDLink() { return menuService.grow_led_callback_(); }
 result updateFanLink() { return menuService.fan_callback_(); }
 result doAlertLink(eventMask enterEvent, prompt &item) {
   return menuService.do_alert_callback_(enterEvent, item);
+}
+result doAlertIPAdressLink(eventMask enterEvent, prompt &item) {
+  return menuService.do_alert_ipadress_callback_(enterEvent, item); 
 }
 
 }  // namespace planto
@@ -111,23 +123,23 @@ kurz Unterschiede von Field und Op erläutern
 (https://github.com/neu-rah/ArduinoMenu/wiki/Menu-definition)
 */
 int dutyCycleLED = 0;
-/*FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan,
-           eventMask::exitEvent, noStyle),*/
+// FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan,
+//            eventMask::exitEvent, noStyle);
 int dummy = 2;
 
-int drehzahl=0;
+int drehzahl = 0;
 
-TOGGLE(drehzahl,dirFanMenu,"Ventilator: ",doNothing,noEvent,wrapStyle
-  ,VALUE("an",1,planto::updateFanLink,noEvent)
-  ,VALUE("aus",0,planto::updateFanLink,noEvent)
-);
+
+
 
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, planto::updateGrowLEDLink,
            eventMask::exitEvent, noStyle),
-     /*FIELD(dummy, "Ventilator", " ", 0, 1, 1, 1, planto::updateFanLink,
-           eventMask::exitEvent, noStyle),*/
-     SUBMENU(dirFanMenu), OP("Messwerte", planto::doAlertLink, enterEvent),
+     FIELD(fan.dutyCycleFan_, "Ventilator", "%", 0, 255, 25, 10,
+           planto::updateFanLink, eventMask::exitEvent, noStyle),
+     //SUBMENU(dirFanMenu), 
+     OP("Messwerte", planto::doAlertLink, enterEvent),
+     OP("Webserver", planto::doAlertIPAdressLink, enterEvent),
      EXIT("<Back"));
 
 MENU_OUTPUTS(out, MAX_DEPTH,
@@ -170,6 +182,7 @@ result alert(menuOut &o, idleEvent e) {
       break;
     case Menu::idling:
       t = dht.readTemperature();
+      light = lightMeter.readLightLevel(); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
         water = 0;
@@ -196,7 +209,7 @@ result alert(menuOut &o, idleEvent e) {
       o.print("%");
       o.setCursor(0, 3);
       o.print("Helligkeit ");
-      o.print(light, 0);
+      o.print(light);
       o.setCursor(15, 3);
       o.print("lx");
       break;
@@ -226,6 +239,21 @@ result idleMenu(menuOut &o, idleEvent e) {
       o.println("resuming menu.");
       flag_idling = false;
       last_active_display = millis();
+      break;
+  }
+  return proceed;
+}
+
+result idleIPAdress(menuOut &o, idleEvent e){
+  switch(e){
+    case Menu::idleStart:
+      break;
+    case Menu::idling:
+      planto::menuService.ipadress_callback_(o); 
+      break; 
+    case Menu::idleEnd:
+      break;
+    default:
       break;
   }
   return proceed;

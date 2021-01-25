@@ -13,6 +13,12 @@ class Fan {
   void init();
 
   int dutyCycleFan_;
+  
+  enum class Zustand {
+    an, 
+    aus
+  } ; 
+  Zustand zustand; 
 
  private:
   int pinPWM_;

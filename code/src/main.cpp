@@ -14,7 +14,6 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <Wire.h>             //Kommunikation mit I2C
 #include <planto_menu.h>
 
-#include "fan.h"  //Klasse für den Ventilator
 #include "secrets.h"
 
 /*
@@ -22,11 +21,11 @@ benötigte Variablen,um unsere Hardware ansprechen
 --> Datentypen erläutern
 */
 
-long last_change;            // Zeitstempel der letzten Änderung im Display
+long last_change;  // Zeitstempel der letzten Änderung im Display
 
 // Messwerte
 
-float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
+//float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
 // Bool-Variablen als Flags für Fehlermeldungen
 int counter_warnings = 0;  // Zähler Fehlermeldungen --> umbennen
 bool flag_temp = false;    // Statuskennzeichen für Temperaturwarnungen
@@ -35,6 +34,58 @@ bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 int last_path = 0;
 
+//enum Klassen, um die Zustände von LED und FAN zu erfassen 
+enum class Ledzustand {
+  an, 
+  aus
+} ; 
+Ledzustand ledzustand = Ledzustand::aus; 
+
+//enum Klassen, um die Zustände der Sensoren und Änderungen in echtzeit zu erfassen und nur
+//dann in einen Warnhinweis zu wechseln 
+enum class Wasserzustand {
+  ok,
+  zuWenig, 
+  zuViel 
+} ;
+
+Wasserzustand wasserzustand = Wasserzustand::ok;
+const int wasserstandProzentZuViel = 95; 
+const int wasserstandProzentZuWenig = 10; 
+
+enum class Temperaturzustand {
+  ok, 
+  zuWarm, 
+  zuKalt, 
+} ; 
+
+Temperaturzustand temperaturzustand = Temperaturzustand::ok; 
+const float temperaturGradZuWarm = 30; 
+const float temperaturGradZuKalt = 15; 
+
+enum class Luftfeuchtigkeitzustand {
+  ok, 
+  zuTrocken, 
+  zuFeucht, 
+} ; 
+
+Luftfeuchtigkeitzustand luftfeuchttigkeitzustand = Luftfeuchtigkeitzustand::ok; 
+const float luftfeuchtigkeitzustandZuTrocken = 15; 
+const float luftfeuchtigkeitzustandZuFeucht = 70; 
+
+enum class Lichtzustand {
+  ok, 
+  zuHell, 
+  zuDunkel, 
+} ; 
+
+Lichtzustand lichtzustand = Lichtzustand::ok; 
+const float lichtLuxZuHell = 2000; 
+const float lichtLuxZuDunkel = 50; 
+
+
+
+bool updateIdleScreen = false; //Flag um zu gucken, ob eine Änderung zum vorherigen Zustand vorkommt
 bool warningout = false;  // Flag um zu gucken ob es nachts ist und demnach
                           // besser die Warnungen aus sind
 
@@ -47,26 +98,24 @@ const int ledChannel = 0;  // Vergebung eines internen Channels, beliebig
                            // wählbar, hier Nutzung des ersten
 const int resolution = 8;  // Auflösung in Bits von 0 bis 32, bei 8-Bit
                            // (Standard) erhält man Werte von 0-255
-// Ventilator
-/*
-const int fanPWM = 27;       //Pin-Belegung für das PWM-Signal
-const int fanTacho = 26;     //nicht genutzt --> löschen
-int dutyCycleFan = 0;        //Regulierung des PWM-Signals
-const int fanFreq = 25000;   //Ventilator-PWM-Frequenz zwischen 21kHz and 28kHz,
-hier 25kHz const int fanResolution = 8; //Auflösung in Bits von 0 bis 32, bei
-8-Bit (Standard) erhält man Werte von 0-255 const int fanChannel = 0;
-//Vergebung eines internen Channels, beliebig wählbar, hier Nutzung des ersten
-*/
-// Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
-planto::Fan fan;
+
+
 // Set web server port number to 80
 WiFiServer server(80);
+//Variable um zu gucken ob Webpage refreshed wurde
+
+enum class Buttonzustand {
+  an, 
+  aus
+} ; 
+Buttonzustand LedButtonzustand = Buttonzustand::aus; 
+Buttonzustand FanButtonzustand = Buttonzustand::aus; 
 
 // Variable to store the HTTP request
 String header;
 
 // Auxiliar variables to store the current output state
-String outputLed = "off";
+
 String outputFan = "off";
 
 // Current time
@@ -95,28 +144,51 @@ int resolution_buzzer = 8;
 result updateGrowLED();
 result updateFan();
 result doAlert(eventMask enterEvent, prompt &item);
+result doAlertIPAdress(eventMask enterEvent, prompt & item); 
 void warnings(menuOut &o);
-
+void printIpAdresse(menuOut &o); 
 
 // Methode zur Regelung der LED-Helligkeit
 
 result updateGrowLED() {
-  ledcWrite(ledChannel, dutyCycleLED);
-
+  Ledzustand ledzustandAktuell; 
   if (dutyCycleLED > 0) {
-    outputLed = "on";
+    ledzustandAktuell = Ledzustand::an; 
   } else {
-    outputLed = "off";
+    ledzustandAktuell = Ledzustand::aus; 
   }
-
+  if (ledzustandAktuell != ledzustand){
+    ledzustand = ledzustandAktuell;
+    ledcWrite(ledChannel, dutyCycleLED);
+  }
   return proceed;
 }
 
 // Methode zur Regelung der Ventilator-Geschwindigkeit
 
 result updateFan() {
-  fan.updateSpeed();
+  planto::Fan::Zustand zustandAktuell; 
+  if (fan.dutyCycleFan_ > 0){
+    Serial.println("fan an"); 
+    zustandAktuell = planto::Fan::Zustand::an; 
+  } else if (fan.dutyCycleFan_ <= 0) {
+    Serial.println("fan aus"); 
+    zustandAktuell = planto::Fan::Zustand::aus; 
+  }
+  if (zustandAktuell != fan.zustand){
+    fan.zustand = zustandAktuell; 
+    Serial.println("change");
+    fan.updateSpeed();
+  }
   return proceed;
+}
+void printIpAdresse(menuOut &o){
+  o.setCursor(0,0); 
+  o.println("IP-Adresse"); 
+  o.setCursor(0,1); 
+  o.println("Webserver:");
+  o.setCursor(0,3); 
+  o.println(WiFi.localIP()); 
 }
 
 // Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder
@@ -127,6 +199,11 @@ result doAlert(eventMask e, prompt &item) {
   return proceed;
 }
 
+result doAlertIPAdress(eventMask e, prompt &item){
+  nav.idleOn(idleIPAdress); 
+  return proceed; 
+}
+
 /*
 Methode zur Ausgabe von Fehlermeldungen
 --> Prinzip if/else if/else, Displayausgabe, Funktion map, Abfrage Sensoren,
@@ -134,106 +211,132 @@ Logik der Flags
 */
 void warnings(menuOut &o) {
   if (warningout == false) {
-    ledcWriteTone(channel_buzzer, 2000);
-    ledcWrite(channel_buzzer, 0);
-    if (dht.readTemperature() < 15) {
+    
+    if (temperaturzustand == Temperaturzustand::zuKalt) {
       o.setCursor(0, 2);
       o.println("zu kalt");
-      ledcWrite(channel_buzzer, 75);
-      flag_temp = true;
-    } else if (dht.readTemperature() > 30) {
+      
+    } else if (temperaturzustand == Temperaturzustand::zuWarm) {
       o.setCursor(0, 2);
       o.println("zu warm");
-      ledcWrite(channel_buzzer, 75);
-      flag_temp = true;
-    } else {
-      ledcWrite(channel_buzzer, 0);
-      flag_temp = false;
     }
-    if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) < 10) {
+    if (wasserzustand == Wasserzustand::zuWenig) {
       o.setCursor(0, 1);
       o.println("zu wenig Wasser");
-      // ledcWrite(channel_buzzer, 75);
-      flag_water = true;
-    } else if (map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0) > 95) {
+    } else if (wasserzustand == Wasserzustand::zuViel) {
       o.setCursor(0, 1);
       o.println("zu viel Wasser");
-      ledcWrite(channel_buzzer, 75);
-      flag_water = true;
-    } else {
-      ledcWrite(channel_buzzer, 0);
-      flag_water = false;
     }
-    if (dht.readHumidity() < 15) {
+    if (luftfeuchttigkeitzustand == Luftfeuchtigkeitzustand::zuTrocken) {
       o.setCursor(0, 3);
       o.println("Luft ist zu trocken");
-      ledcWrite(channel_buzzer, 50);
-      flag_hum = true;
-    } else if (dht.readHumidity() > 70) {
+    } else if (luftfeuchttigkeitzustand == Luftfeuchtigkeitzustand::zuFeucht) {
       o.setCursor(0, 3);
       o.println("zu feucht");
-      ledcWrite(channel_buzzer, 75);
-      flag_hum = true;
-    } else {
-      ledcWrite(channel_buzzer, 0);
-      flag_hum = false;
     }
-    /*
-    if (lightMeter.readLightLevel() > 2000)
-    {
+    if (lichtzustand == Lichtzustand::zuHell) {
       o.setCursor(0, 0);
       o.println("zu viel Licht");
-      ledcWrite(channel_buzzer, 75);
-      flag_light = true;
-    }
-    else if (lightMeter.readLightLevel() < 50)
-    {
+    } else if (lichtzustand == Lichtzustand::zuDunkel) {
       o.setCursor(0, 0);
       o.println("zu wenig Licht");
-      ledcWrite(channel_buzzer, 75);
-      flag_light = true;
     }
-    else
-    {
-      ledcWrite(channel_buzzer, 0);
-      flag_light = false;
-    }
-    */
-
-    // unten einfügen: && flag_light == false
-    // aktuell ist der Lichtsensor nicht angeschlossen, deswegen dessen
-    // Fehlermeldung nicht berücksichtigen
-    if (flag_hum == false && flag_water == false && flag_water == false) {
-      o.setCursor(0, 1);
+    if (temperaturzustand == Temperaturzustand::ok && wasserzustand == Wasserzustand::ok && luftfeuchttigkeitzustand == Luftfeuchtigkeitzustand::ok && lichtzustand == Lichtzustand::ok) {
+      /*o.setCursor(0, 1);
       o.println("Die Pflanze ist");
       o.setCursor(0, 2);
-      o.println("gut versorgt :)");
-      ledcWriteTone(channel_buzzer, 2000);
-      ledcWrite(channel_buzzer, 0);
+      o.println("gut versorgt :)");*/
+      nav.idleOff(); 
     }
-    counter_warnings = flag_water + flag_light + flag_temp + flag_hum;
   } else if (warningout == true) {
     Serial.println(
         "es ist nachts, es werden keine Warnungen angezeit Zzzzzzzzz");
-    ledcWriteTone(channel_buzzer, 2000);
-    ledcWrite(channel_buzzer, 0);
+    nav.idleOff(); 
   }
 }
+
+void checkSensors(){
+  int wasserstandProzent = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0); 
+  Wasserzustand wasserzustandAktuell; 
+  if (wasserstandProzent < wasserstandProzentZuWenig){
+    wasserzustandAktuell = Wasserzustand::zuWenig; 
+  } else if (wasserstandProzent > wasserstandProzentZuViel){
+    wasserzustandAktuell = Wasserzustand::zuViel; 
+  } else{
+    wasserzustandAktuell = Wasserzustand::ok; 
+  }
+  if (wasserzustandAktuell != wasserzustand){
+    wasserzustand = wasserzustandAktuell; 
+    updateIdleScreen = true; 
+  }
+
+  float temperaturGrad = dht.readTemperature(); 
+  Temperaturzustand temperaturzustandAktuell; 
+  if (temperaturGrad < temperaturGradZuKalt){
+    temperaturzustandAktuell = Temperaturzustand::zuKalt;
+  } else if (temperaturGrad > temperaturGradZuWarm){
+    temperaturzustandAktuell = Temperaturzustand::zuWarm; 
+  } else {
+    temperaturzustandAktuell = Temperaturzustand::ok; 
+  }
+  if (temperaturzustandAktuell != temperaturzustand){
+    temperaturzustand = temperaturzustandAktuell; 
+    updateIdleScreen = true; 
+  }
+
+  float luftfeuchtigkeit = dht.readHumidity(); 
+  Luftfeuchtigkeitzustand luftfeuchtigkeitzustandAktuell; 
+  if (luftfeuchtigkeit < luftfeuchtigkeitzustandZuTrocken){
+    luftfeuchtigkeitzustandAktuell = Luftfeuchtigkeitzustand::zuTrocken;
+  } else if (luftfeuchtigkeit > luftfeuchtigkeitzustandZuFeucht){
+    luftfeuchtigkeitzustandAktuell = Luftfeuchtigkeitzustand::zuFeucht;  
+  } else {
+    luftfeuchtigkeitzustandAktuell = Luftfeuchtigkeitzustand::ok; 
+  }
+  if (luftfeuchtigkeitzustandAktuell != luftfeuchttigkeitzustand){
+    luftfeuchttigkeitzustand = luftfeuchtigkeitzustandAktuell; 
+    updateIdleScreen = true; 
+  }
+
+  float lichtLux = lightMeter.readLightLevel(); 
+  Lichtzustand lichtzustandAktuell; 
+  if (lichtLux < lichtLuxZuDunkel){
+    lichtzustandAktuell = Lichtzustand::zuDunkel;
+  } else if (lichtLux > lichtLuxZuHell){
+    lichtzustandAktuell = Lichtzustand::zuHell;  
+  } else {
+    lichtzustandAktuell = Lichtzustand::ok; 
+  }
+  if (lichtzustandAktuell != lichtzustand){
+    lichtzustand = lichtzustandAktuell; 
+    updateIdleScreen = true; 
+  }
+}
+
 
 // Methode um LED via Zeit anschalten
 
 void turnonLED() {
-  ledon = true;
   dutyCycleLED = 100;
-  ledcWrite(ledChannel, dutyCycleLED);
+  updateGrowLED(); 
   Serial.println("LED on");
 }
 
 // Methode um LED via Zeit auszuschalten
 void turnoffLED() {
   dutyCycleLED = 0;
-  ledcWrite(ledChannel, dutyCycleLED);
+  updateGrowLED(); 
   Serial.println("LED off");
+}
+
+void turnonFan(){
+  fan.dutyCycleFan_ = 100; 
+  updateFan(); 
+}
+
+void turnoffFan(){
+  fan.dutyCycleFan_ = 0; 
+  updateFan(); 
 }
 
 /*
@@ -275,7 +378,9 @@ void setup() {
   planto::menuService.SetGrowLEDCallback(updateGrowLED);
   planto::menuService.SetFanCallback(updateFan);
   planto::menuService.SetDoAlertCallback(doAlert);
-  planto::menuService.SetWarningsCallback(warnings); 
+  planto::menuService.SetWarningsCallback(warnings);
+  planto::menuService.SetIPAdresseCallback(printIpAdresse); 
+  planto::menuService.SetDoAlertIPAdress(doAlertIPAdress); 
 
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Connecting to ");
@@ -294,16 +399,16 @@ void setup() {
 
   timeClient.begin();
 
-  ledcSetup(channel_buzzer, freq_buzzer, resolution_buzzer);
-  ledcAttachPin(33, channel_buzzer);
+  /*ledcSetup(channel_buzzer, freq_buzzer, resolution_buzzer);
+  ledcAttachPin(33, channel_buzzer);*/
 }
 /*
 Schleife des Programms
 wiederholt sich endlos
 */
 void loop() {
-  setuplight = lightMeter.readLightLevel();  // Abfrage Licht
-  delay(150);
+  //setuplight = lightMeter.readLightLevel();  // Abfrage Licht
+  //delay(150);
 
   WiFiClient client = server.available();  // Listen for incoming clients
 
@@ -314,14 +419,12 @@ void loop() {
   // möchte)
 
   thistime = timeClient.getHours();
-  if (thistime >= 16 && thistime <= 18) {
-    Serial.print("HourTime: ");
-    Serial.println(thistime);
-    if (ledon == false) {
+  if (thistime >= 18 && thistime <= 7) {
+    if (ledzustand == Ledzustand::aus) {
       turnonLED();
     }
   } else if (thistime == 19) {
-    if (ledon == true) {
+    if (ledzustand == Ledzustand::an) {
       turnoffLED();
     }
   }
@@ -329,18 +432,20 @@ void loop() {
     warningout = true;
   }
 
-  // timeClient.update();
-  // Serial.print(daysOfTheWeek[timeClient.getDay()]);
-  // Serial.print(", ");
-  // Serial.println(timeClient.getFormattedTime());
 
   // Aktualisierung in Zeitintervall
   // aktuell 5000 ms, d.h. alle 5 Sek ohne Änderung der Messwerte
   // eine höhere Zeitspanne reduziert den Energieverbrauch
-  if (abs(last_change - millis()) > duration) {
+  if (labs(last_change - millis()) > duration) {
     last_change = millis();
-    nav.idleChanged = true;
-    nav.refresh();
+    checkSensors(); 
+
+    if(updateIdleScreen){
+      updateIdleScreen = false; 
+      nav.idleChanged = true;
+      nav.refresh(); //wozu? 
+      nav.idleOn(idleMenu); //so springt er direkt ins Menu
+    }
   }
 
   nav.doInput();
@@ -354,11 +459,11 @@ void loop() {
     last_path = nav.path->sel;
     last_active_display = millis();
   }
-  
-    if (flag_idling == false &&
-        labs(last_active_display - millis()) > display_timeout) {
-      nav.idleOn(idleMenu);
-    }
+
+  if (flag_idling == false &&
+      labs(last_active_display - millis()) > display_timeout) {
+    nav.idleOn(idleMenu);
+  }
 
   if (client) {  // If a new client connects,
     currentTime = millis();
@@ -386,30 +491,61 @@ void loop() {
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // turns the LED & Fan on and off
-            if (header.indexOf("GET /led/on") >= 0) {
-              Serial.println("LED on");
-              outputLed = "on";
-              ledcWrite(ledChannel, 255);
-              dutyCycleLED = 255;
-            } else if (header.indexOf("GET /led/off") >= 0) {
-              Serial.println("LED off");
-              outputLed = "off";
-              ledcWrite(ledChannel, 0);
-              dutyCycleLED = 0;
+            
+            // turns the LED & Fan on and off -> Methode einfügen um Status LED/Ventilator zu haben?? 
+            
+            if (ledzustand == Ledzustand::an){
+              if (LedButtonzustand == Buttonzustand::aus){
+                turnonLED(); 
+                LedButtonzustand = Buttonzustand::an; 
+              } else {
+                if (header.indexOf("GET /led/on") >= 0) {
+                  Serial.println("LED ist bereits an"); 
+                } else if (header.indexOf("GET /led/off") >= 0) {
+                  Serial.println("LED off");
+                  turnoffLED();
+                } 
+              }  
+            } else {
+              if (LedButtonzustand == Buttonzustand::an){
+                turnoffLED(); 
+                LedButtonzustand = Buttonzustand::aus; 
+              } else {
+                if (header.indexOf("GET /led/on") >= 0){
+                  Serial.println("LED on");
+                  turnonLED();
+                } else if (header.indexOf("GET /led/off") >= 0){
+                  Serial.println("LED bereits aus"); 
+                }
+              }  
             }
-
-            if (header.indexOf("GET /fan/on") >= 0) {
-              Serial.println("Fan on");
-              outputFan = "on";
-              // fan.updateSpeed(fan.fanChannel_, 255);
-              // ledcWrite(fan.fanChannel_, 255);
-            } else if (header.indexOf("GET /fan/off") >= 0) {
-              Serial.println("Fan off");
-              outputFan = "off";
-              // ledcWrite(fan.fanChannel_, 0);
+           
+            if (fan.zustand == planto::Fan::Zustand::an){
+              if (FanButtonzustand == Buttonzustand::aus){
+                turnonFan(); 
+                FanButtonzustand = Buttonzustand::an; 
+              } else {
+                if (header.indexOf("GET /fan/on") >= 0) {
+                  Serial.println("fan ist bereits an"); 
+                } else if (header.indexOf("GET /fan/off") >= 0) {
+                  Serial.println("fan off");
+                  turnoffFan();
+                }
+              }  
+            } else {
+              if (FanButtonzustand == Buttonzustand::an){
+                turnoffFan(); 
+                FanButtonzustand = Buttonzustand::aus; 
+              } else {
+                if (header.indexOf("GET /fan/on") >= 0){
+                  Serial.println("fan on");
+                  turnonFan();
+                } else if (header.indexOf("GET /fan/off") >= 0){
+                  Serial.println("fan bereits aus"); 
+                }
+              }  
             }
-
+            
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
             client.println(
@@ -451,34 +587,37 @@ void loop() {
             h = dht.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
+            light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
             client.println("</body></html>");
 
             // Display current state, and ON/OFF buttons for GPIO 26
-            // client.println("<p>LED" + outputLed + "</p>");
             client.println("<p>LED </p>");
-            // If the output26State is off, it displays the ON button
-            if (outputLed == "off") {
+            if (ledzustand == Ledzustand::an) {
               client.println(
-                  "<p><a href=\"/led/on\"><button "
+                  "<p><a href=\"/led/off\"><button "
                   "class=\"button\">ON</button></a></p>");
-            } else {
+              LedButtonzustand = Buttonzustand::an; 
+            } else if (ledzustand == Ledzustand::aus) {
               client.println(
-                  "<p><a href=\"/led/off\"><button class=\"button "
+                  "<p><a href=\"/led/on\"><button class=\"button "
                   "button2\">OFF</button></a></p>");
+              LedButtonzustand = Buttonzustand::aus;      
             }
 
             client.println("<p>Ventilator </p>");
             // If the output26State is off, it displays the ON button
-            if (outputFan == "off") {
+            if (fan.zustand == planto::Fan::Zustand::an) {
               client.println(
-                  "<p><a href=\"/fan/on\"><button "
+                  "<p><a href=\"/fan/off\"><button "
                   "class=\"button\">ON</button></a></p>");
+              FanButtonzustand = Buttonzustand::an;     
             } else {
               client.println(
-                  "<p><a href=\"/fan/off\"><button class=\"button "
-                  "button2\">OFF</button></a></p>");
+                  "<p><a href=\"/fan/on\"><button class=\"button "
+                  "button2\">OFF</button></a></p>");  
+              FanButtonzustand = Buttonzustand::aus;     
             }
 
             // The HTTP response ends with another blank line
