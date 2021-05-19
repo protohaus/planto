@@ -1,4 +1,6 @@
 #include <Arduino.h>
+//#include <BH1750.h>              //Lichtsensor
+#include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
 #include <menu.h>                //Menu
 #include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
 #include <menuIO/serialIn.h>  //Verwendung von standardmäßigem seriellen Input
@@ -7,6 +9,8 @@
 #include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
 
 #include <functional>
+
+#include "fan.h"  //Klasse für den Ventilator
 
 // Parameter für das Display und das Menü
 #define MAX_DEPTH 1
@@ -18,20 +22,45 @@
 #define U8_Width 128
 #define U8_Height 64
 
-int duration = 30000;  // Dauer in ms für Displayupdate
+// für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
+#define DHTPIN 32
+#define DHTTYPE DHT11
+int PinCapacitiveSoil = 35;  // Pin-Belegung Feuchtigkeitssensor
+int duration = 500;        // Dauer in ms für Displayupdate
 int display_timeout =
-    10000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
+    20000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
 
 menuNode *last_selected_prompt = nullptr;
 long last_light = 0;
 long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 
-// Buttons
-int PinTasterSelect = 16;  // Schalter zum Bestätigen
-int PinTasterUp = 17;      // Taster zum Auswählen nach oben
-int PinTasterDown = 18;    // Taster zum Auswählen nach unten
-int PinTasterEsc = 19;     // Taster zum zurück gehen
+bool flag_idling = false; 
 
+/*BH1750 lightMeter(
+    0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
+*/
+DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
+                           // und Luftfeuchtigkeit
+
+// Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
+planto::Fan fan;
+
+// Messwerte
+float h;    // abgefragter Luftfeuchtigkeitswert --> umbennen
+float t;    // abgefragter Temperaturwert --> umbennen
+int water;  // abgefragter Wasserstand -->umbennen
+int hum;    // umgewandelter Feuchtigkeitswert im Bereich 0-100 -->umbennen
+float light = 0.0;  // abgefragter Lichtwert -->umbennen
+
+// Buttons
+int PinTasterSelect = 5;  // Schalter zum Bestätigen
+int PinTasterUp = 17;     // Taster zum Auswählen nach oben
+int PinTasterDown = 19;   // Taster zum Auswählen nach unten
+int PinTasterEsc = 18;    // Taster zum zurück gehen
+
+result idleIPAdress(menuOut &o, idleEvent e);
+
+result idleBootsrapAusgabe(menuOut &o, idleEvent e);
 // Klasse
 namespace planto {
 
@@ -46,16 +75,30 @@ class MenuService {
   void SetDoAlertCallback(std::function<result(eventMask, prompt &)> callback) {
     do_alert_callback_ = callback;
   }
-  /*void SetIdleMenuCallback(
-      std::function<result(menuOut &, idleEvent)> callback) {
-    idle_menu_callback_ = callback;
-  }*/
+  void SetWarningsCallback(std::function<void(menuOut &)> callback) {
+    warnings_callback_ = callback;
+  }
+  void SetIPAdresseCallback(std::function<void(menuOut &)> callback) {
+    ipadress_callback_ = callback; 
+  }
+  void SetDoAlertIPAdress(std::function<result(eventMask, prompt &)> callback){
+    do_alert_ipadress_callback_ = callback; 
+  }
+  void SetBootstrapCallback(std::function<void(menuOut &)> callback){
+    bootstrap_callback_ = callback; 
+  }
+  void SetDoAlertBootstrap(std::function<result(eventMask, prompt &)> callback){
+    do_alert_bootstrap_callback_ = callback; 
+  }
 
   std::function<result()> grow_led_callback_;
   std::function<result()> fan_callback_;
   std::function<result(eventMask, prompt &)> do_alert_callback_;
-  // std::function<result(menuOut &, idleEvent)> idle_menu_callback_;
-  bool flag_idling = false;
+  std::function<void(menuOut &)> warnings_callback_;
+  std::function<void(menuOut &)> ipadress_callback_; 
+  std::function<result(eventMask, prompt &)> do_alert_ipadress_callback_; 
+  std::function<void(menuOut &)> bootstrap_callback_; 
+  std::function<result(eventMask, prompt &)> do_alert_bootstrap_callback_; 
 };
 MenuService menuService;
 
@@ -66,30 +109,10 @@ result updateFanLink() { return menuService.fan_callback_(); }
 result doAlertLink(eventMask enterEvent, prompt &item) {
   return menuService.do_alert_callback_(enterEvent, item);
 }
-
-// result alert(menuOut &o, idleEvent e) {return proceed;}
-/*result idleMenuLink(menuOut &o, idleEvent e) {
-  return menuService.idle_menu_callback_(o, e);
-}*/
-result idleMenu(menuOut &o, idleEvent e) {
-  o.clear();
-  switch (e) {
-    case idleStart:
-      o.println("suspending menu!");
-      flag_idling = true;
-      break;
-    case idling:
-      o.clear();
-      warnings(o);
-      break;
-    case idleEnd:
-      o.println("resuming menu.");
-      flag_idling = false;
-      last_active_display = millis();
-      break;
-  }
-  return proceed;
+result doAlertIPAdressLink(eventMask enterEvent, prompt &item) {
+  return menuService.do_alert_ipadress_callback_(enterEvent, item); 
 }
+
 }  // namespace planto
 
 // Display
@@ -110,16 +133,24 @@ kurz Unterschiede von Field und Op erläutern
 (https://github.com/neu-rah/ArduinoMenu/wiki/Menu-definition)
 */
 int dutyCycleLED = 0;
-/*FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan,
-           eventMask::exitEvent, noStyle),*/
+// FIELD(fan.dutyCycleFan_, "Ventilator", " ", 0, 255, 25, 10, updateFan,
+//            eventMask::exitEvent, noStyle);
 int dummy = 2;
+
+int drehzahl = 0;
+
+
+
 
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, planto::updateGrowLEDLink,
            eventMask::exitEvent, noStyle),
-     FIELD(dummy, "Ventilator", " ", 0, 255, 25, 10, planto::updateFanLink,
-           eventMask::exitEvent, noStyle),
-     OP("Messwerte", planto::doAlertLink, enterEvent), EXIT("<Back"));
+     FIELD(fan.dutyCycleFan_, "Ventilator", "%", 0, 255, 25, 10,
+           planto::updateFanLink, eventMask::exitEvent, noStyle),
+     //SUBMENU(dirFanMenu), 
+     OP("Messwerte", planto::doAlertLink, enterEvent),
+     OP("Webserver", planto::doAlertIPAdressLink, enterEvent),
+     EXIT("<Back"));
 
 MENU_OUTPUTS(out, MAX_DEPTH,
              U8G2_OUT(u8g2, colors, fontX, fontY, offsetX, offsetY,
@@ -150,4 +181,106 @@ void updateDisplay() {
   do {
     nav.doOutput();
   } while (u8g2.nextPage());
+}
+
+// Wofür genau ist diese Methode? Was macht sie? Warum ist sie Wichtig? Warum
+// heißt sie alert, wenn sie das Menue zeigt?
+
+result alert(menuOut &o, idleEvent e) {
+  switch (e) {
+    case Menu::idleStart:
+      break;
+    case Menu::idling:
+      t = dht.readTemperature();
+      //light = lightMeter.readLightLevel(); 
+      water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
+      if (water < 0) {
+        water = 0;
+      }
+      if (water > 100) {
+        water = 100;
+      }
+      h = dht.readHumidity();
+      hum = ((int)(h * 10)) / 10.0;
+      o.setCursor(0, 0);
+      o.print("Temperatur ");
+      o.print(t, 1);
+      o.setCursor(16, 0);
+      o.print("C");
+      o.setCursor(0, 1);
+      o.print("Wasserstand ");
+      o.print(water);
+      o.setCursor(15, 1);
+      o.print("%");
+      o.setCursor(0, 2);
+      o.print("Feuchtigkeit ");
+      o.print(hum);
+      o.setCursor(16, 2);
+      o.print("%");
+      o.setCursor(0, 3);
+      /*o.print("Helligkeit ");
+      o.print(light);
+      o.setCursor(15, 3);
+      o.print("lx");*/
+      break;
+    case Menu::idleEnd:
+      break;
+    default:
+      break;
+  }
+
+  return proceed;
+}
+/*result idleMenuLink(menuOut &o, idleEvent e) {
+  return menuService.idle_menu_callback_(o, e);
+}*/
+result idleMenu(menuOut &o, idleEvent e) {
+  o.clear();
+  switch (e) {
+    case idleStart:
+      o.println("suspending menu!");
+      flag_idling = true;
+      break;
+    case idling:
+      o.clear();
+      planto::menuService.warnings_callback_(o);
+      break;
+    case idleEnd:
+      o.println("resuming menu.");
+      flag_idling = false;
+      last_active_display = millis();
+      break;
+  }
+  return proceed;
+}
+
+result idleIPAdress(menuOut &o, idleEvent e){
+  switch(e){
+    case Menu::idleStart:
+      break;
+    case Menu::idling:
+      planto::menuService.ipadress_callback_(o); 
+      break; 
+    case Menu::idleEnd:
+      break;
+    default:
+      break;
+  }
+  return proceed;
+}
+
+result idleBootsrapAusgabe(menuOut &o, idleEvent e){
+  switch(e){
+    case Menu::idleStart:
+      break;
+    case Menu::idling:
+      //callback zu Ausgabe in Main  
+      planto::menuService.bootstrap_callback_(o); 
+      break; 
+    case Menu::idleEnd:
+      break;
+    default:
+      break;
+  }
+  return proceed;
 }
