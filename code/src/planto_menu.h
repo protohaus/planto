@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <BH1750.h>              //Lichtsensor
+//#include <BH1750.h>              //Lichtsensor
 #include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
 #include <menu.h>                //Menu
 #include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
@@ -36,9 +36,9 @@ long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 
 bool flag_idling = false; 
 
-BH1750 lightMeter(
+/*BH1750 lightMeter(
     0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
-
+*/
 DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
                            // und Luftfeuchtigkeit
 
@@ -59,6 +59,8 @@ int PinTasterDown = 19;   // Taster zum Auswählen nach unten
 int PinTasterEsc = 18;    // Taster zum zurück gehen
 
 result idleIPAdress(menuOut &o, idleEvent e);
+
+result idleBootsrapAusgabe(menuOut &o, idleEvent e);
 // Klasse
 namespace planto {
 
@@ -82,6 +84,12 @@ class MenuService {
   void SetDoAlertIPAdress(std::function<result(eventMask, prompt &)> callback){
     do_alert_ipadress_callback_ = callback; 
   }
+  void SetBootstrapCallback(std::function<void(menuOut &)> callback){
+    bootstrap_callback_ = callback; 
+  }
+  void SetDoAlertBootstrap(std::function<result(eventMask, prompt &)> callback){
+    do_alert_bootstrap_callback_ = callback; 
+  }
 
   std::function<result()> grow_led_callback_;
   std::function<result()> fan_callback_;
@@ -89,6 +97,8 @@ class MenuService {
   std::function<void(menuOut &)> warnings_callback_;
   std::function<void(menuOut &)> ipadress_callback_; 
   std::function<result(eventMask, prompt &)> do_alert_ipadress_callback_; 
+  std::function<void(menuOut &)> bootstrap_callback_; 
+  std::function<result(eventMask, prompt &)> do_alert_bootstrap_callback_; 
 };
 MenuService menuService;
 
@@ -182,7 +192,7 @@ result alert(menuOut &o, idleEvent e) {
       break;
     case Menu::idling:
       t = dht.readTemperature();
-      light = lightMeter.readLightLevel(); 
+      //light = lightMeter.readLightLevel(); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
         water = 0;
@@ -208,10 +218,10 @@ result alert(menuOut &o, idleEvent e) {
       o.setCursor(16, 2);
       o.print("%");
       o.setCursor(0, 3);
-      o.print("Helligkeit ");
+      /*o.print("Helligkeit ");
       o.print(light);
       o.setCursor(15, 3);
-      o.print("lx");
+      o.print("lx");*/
       break;
     case Menu::idleEnd:
       break;
@@ -250,6 +260,22 @@ result idleIPAdress(menuOut &o, idleEvent e){
       break;
     case Menu::idling:
       planto::menuService.ipadress_callback_(o); 
+      break; 
+    case Menu::idleEnd:
+      break;
+    default:
+      break;
+  }
+  return proceed;
+}
+
+result idleBootsrapAusgabe(menuOut &o, idleEvent e){
+  switch(e){
+    case Menu::idleStart:
+      break;
+    case Menu::idling:
+      //callback zu Ausgabe in Main  
+      planto::menuService.bootstrap_callback_(o); 
       break; 
     case Menu::idleEnd:
       break;

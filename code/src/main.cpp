@@ -6,7 +6,7 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 */
 #include <Adafruit_Sensor.h>  //Basisklasse für viele Sensoren
 #include <Arduino.h>          //Ansprechen des Arduinos
-#include <BH1750.h>           //Lichtsensor
+//#include <BH1750.h>           //Lichtsensor
 #include <DHT.h>              //Feuchtigkeits- und Temperatursensor
 #include <NTPClient.h>        //Uhrzeitabfrage über WiFi
 #include <WiFi.h>             //WiFi-Verbindung
@@ -14,7 +14,8 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 #include <Wire.h>             //Kommunikation mit I2C
 #include <planto_menu.h>
 
-#include "secrets.h"
+//#include "secrets.h"
+#include "bootstrap.h"
 
 /*
 benötigte Variablen,um unsere Hardware ansprechen
@@ -25,7 +26,7 @@ long last_change;  // Zeitstempel der letzten Änderung im Display
 
 // Messwerte
 
-//float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
+float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
 // Bool-Variablen als Flags für Fehlermeldungen
 int counter_warnings = 0;  // Zähler Fehlermeldungen --> umbennen
 bool flag_temp = false;    // Statuskennzeichen für Temperaturwarnungen
@@ -33,6 +34,7 @@ bool flag_water = false;   // Statuskennzeichen für Wasserwarnungen
 bool flag_hum = false;     // Statuskennzeichen für Luftfeuchtigkeitswarnungen
 bool flag_light = false;   // Statuskennzeichen für Lichtwarnungen
 int last_path = 0;
+
 
 //enum Klassen, um die Zustände von LED und FAN zu erfassen 
 enum class Ledzustand {
@@ -51,7 +53,7 @@ enum class Wasserzustand {
 
 Wasserzustand wasserzustand = Wasserzustand::ok;
 const int wasserstandProzentZuViel = 95; 
-const int wasserstandProzentZuWenig = 10; 
+const int wasserstandProzentZuWenig = 5; 
 
 enum class Temperaturzustand {
   ok, 
@@ -80,13 +82,13 @@ enum class Lichtzustand {
 } ; 
 
 Lichtzustand lichtzustand = Lichtzustand::ok; 
-const float lichtLuxZuHell = 2000; 
-const float lichtLuxZuDunkel = 50; 
+const float lichtLuxZuHell = 2500; 
+const float lichtLuxZuDunkel = 30; 
 
 
 
 bool updateIdleScreen = false; //Flag um zu gucken, ob eine Änderung zum vorherigen Zustand vorkommt
-bool warningout = false;  // Flag um zu gucken ob es nachts ist und demnach
+bool warningout = false;  // Warnungen ein und ausschalten manuell
                           // besser die Warnungen aus sind
 
 // Growing-LED
@@ -145,8 +147,10 @@ result updateGrowLED();
 result updateFan();
 result doAlert(eventMask enterEvent, prompt &item);
 result doAlertIPAdress(eventMask enterEvent, prompt & item); 
+result doAlertBootstrap(eventMask enterEvent, prompt &item); 
 void warnings(menuOut &o);
 void printIpAdresse(menuOut &o); 
+void printBootstrapMessage(menuOut &o); 
 
 // Methode zur Regelung der LED-Helligkeit
 
@@ -191,6 +195,67 @@ void printIpAdresse(menuOut &o){
   o.println(WiFi.localIP()); 
 }
 
+void printWifiMessage(menuOut &o){
+  o.setCursor(0,0); 
+  o.println("looking for ");
+  o.setCursor(0,1);
+  o.println("Wifi to connect");
+  o.setCursor(0,2);
+  o.println("Go to your phones wifi");
+  o.setCursor(0,3);
+  o.println("then: 10.1.1.1");
+}
+
+/*void changeBootstrapMessage(){
+  if(bootstrapzustand == Bootstrapzustand::lookingForWifi){
+    printWifiMessage(menuOut &o); 
+  }  
+}*/
+//Wie machen? 
+
+void printBootstrapMessage(menuOut & o){
+  if (bootstrapzustand == Bootstrapzustand::lookingForWifi){
+    o.setCursor(0,0); 
+    o.println("looking for ");
+    o.setCursor(0,1);
+    o.println("Wifi to connect");
+    o.setCursor(0,2);
+    o.println("Go to your phones wifi");
+    o.setCursor(0,3);
+    o.println("then: 10.1.1.1");
+  }
+  else if (bootstrapzustand == Bootstrapzustand::rebootingAfterBootstrap){
+    o.setCursor(0,1);
+    o.println("submit accepted");
+    o.setCursor(0,2);
+    o.println("rebooting for connection");
+  }
+  else if (bootstrapzustand == Bootstrapzustand::wifiConnctedWith){
+    o.setCursor(0,0); 
+    o.println("Wifi connecten");
+    o.setCursor(0,1);
+    o.println("Wifi name: ");
+    o.setCursor(0,2);
+    o.println(WiFi.SSID());
+  }
+}
+result doAlertBootstrap(eventMask e, prompt &item){
+  nav.idleOn(idleBootsrapAusgabe); 
+  return proceed; 
+}
+
+void chooseZustand(Bootstrapzustand b){
+  if (b == Bootstrapzustand::lookingForWifi){
+    doAlertBootstrap; 
+  }
+  else if (b == Bootstrapzustand::rebootingAfterBootstrap){
+    doAlertBootstrap; 
+  }
+  else if ( b == Bootstrapzustand::wifiConnctedWith){
+    doAlertBootstrap; 
+  }
+}
+
 // Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder
 // Funktionalität zum menue?
 
@@ -203,6 +268,7 @@ result doAlertIPAdress(eventMask e, prompt &item){
   nav.idleOn(idleIPAdress); 
   return proceed; 
 }
+
 
 /*
 Methode zur Ausgabe von Fehlermeldungen
@@ -220,6 +286,7 @@ void warnings(menuOut &o) {
       o.setCursor(0, 2);
       o.println("zu warm");
     }
+    
     if (wasserzustand == Wasserzustand::zuWenig) {
       o.setCursor(0, 1);
       o.println("zu wenig Wasser");
@@ -258,6 +325,7 @@ void warnings(menuOut &o) {
 void checkSensors(){
   int wasserstandProzent = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0); 
   Wasserzustand wasserzustandAktuell; 
+  //Serial.print("wasserzustand: "); Serial.println(wasserstandProzent);
   if (wasserstandProzent < wasserstandProzentZuWenig){
     wasserzustandAktuell = Wasserzustand::zuWenig; 
   } else if (wasserstandProzent > wasserstandProzentZuViel){
@@ -298,7 +366,7 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float lichtLux = lightMeter.readLightLevel(); 
+  /*float lichtLux = lightMeter.readLightLevel(); 
   Lichtzustand lichtzustandAktuell; 
   if (lichtLux < lichtLuxZuDunkel){
     lichtzustandAktuell = Lichtzustand::zuDunkel;
@@ -310,7 +378,7 @@ void checkSensors(){
   if (lichtzustandAktuell != lichtzustand){
     lichtzustand = lichtzustandAktuell; 
     updateIdleScreen = true; 
-  }
+  }*/
 }
 
 
@@ -345,6 +413,10 @@ Einmalige Ausführung zu Beginn
 Initialisierung von Pins, Sensoren etc.
 */
 void setup() {
+  
+  //aktuellerzustand = std::bind(&doAlertBootstrap, std::placeholders::_1); //funktion in bind, die
+  aktuellerzustand = &chooseZustand; 
+
   ledcSetup(ledChannel, freq, resolution);
   ledcAttachPin(PinLED, ledChannel);
 
@@ -353,6 +425,8 @@ void setup() {
   u8g2.setFont(fontName);
   dht.begin();
 
+  setupbootstrap(); 
+
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
   pinMode(PinTasterDown, INPUT_PULLUP);
@@ -360,7 +434,7 @@ void setup() {
 
   fan.init();
 
-  // timeClient.begin();
+  timeClient.begin();
 
   // nav.idleTask = planto::idleMenu;
   nav.idleTask = idleMenu;
@@ -369,11 +443,12 @@ void setup() {
   while (!Serial)
     ;
 
-  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+  
+  /*if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
   } else {
     Serial.println(F("Error initialising BH1750"));
-  }
+  }*/
 
   planto::menuService.SetGrowLEDCallback(updateGrowLED);
   planto::menuService.SetFanCallback(updateFan);
@@ -381,26 +456,21 @@ void setup() {
   planto::menuService.SetWarningsCallback(warnings);
   planto::menuService.SetIPAdresseCallback(printIpAdresse); 
   planto::menuService.SetDoAlertIPAdress(doAlertIPAdress); 
+  planto::menuService.SetBootstrapCallback(printBootstrapMessage);
+  planto::menuService.SetDoAlertBootstrap(doAlertBootstrap);  
 
-  // Connect to Wi-Fi network with SSID and password
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  
   // Print local IP address and start web server
   Serial.println("");
   Serial.println("WiFi connected.");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   server.begin();
+  Serial.println("current wifi: " + WiFi.localIP());
+  Serial.println(WiFi.SSID()); 
 
   timeClient.begin();
 
-  /*ledcSetup(channel_buzzer, freq_buzzer, resolution_buzzer);
-  ledcAttachPin(33, channel_buzzer);*/
 }
 /*
 Schleife des Programms
@@ -464,7 +534,7 @@ void loop() {
       labs(last_active_display - millis()) > display_timeout) {
     nav.idleOn(idleMenu);
   }
-
+  
   if (client) {  // If a new client connects,
     currentTime = millis();
     previousTime = currentTime;
@@ -587,10 +657,10 @@ void loop() {
             h = dht.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
-            light = lightMeter.readLightLevel();
+            /*light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
-            client.println("</body></html>");
+            client.println("</body></html>");*/
 
             // Display current state, and ON/OFF buttons for GPIO 26
             client.println("<p>LED </p>");
