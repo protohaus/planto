@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>      //Basisklasse für viele Sensoren
-#include <BH1750.h>              //Lichtsensor
+//#include <BH1750.h>              //Lichtsensor
 #include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
 #include <Adafruit_BME280.h>  //neuer Luftfeuchtigkeits und Temperatursensor
 #include <menu.h>                //Menu
@@ -52,7 +52,7 @@ long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 
 bool flag_idling = false; 
 
-BH1750 lightMeter(0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
+/*BH1750 lightMeter(0x5C);*/  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
 
 DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
                            // und Luftfeuchtigkeit
@@ -199,7 +199,7 @@ result alert(menuOut &o, idleEvent e) {
       break;
     case Menu::idling:
       t = bme.readTemperature(); 
-      light = lightMeter.readLightLevel(); 
+      //light = lightMeter.readLightLevel(); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
         water = 0;
@@ -224,11 +224,11 @@ result alert(menuOut &o, idleEvent e) {
       o.print(h);
       o.setCursor(17, 2);
       o.print("%");
-      o.setCursor(0, 3);
+      /*o.setCursor(0, 3);
       o.print("Helligkeit ");
       o.print(light);
       o.setCursor(15, 3);
-      o.print("lx");
+      o.print("lx");*/
       break;
     case Menu::idleEnd:
       break;

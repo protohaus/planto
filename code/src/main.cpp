@@ -306,7 +306,7 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float lichtLux = lightMeter.readLightLevel(); 
+  /*float lichtLux = lightMeter.readLightLevel(); 
   Lichtzustand lichtzustandAktuell; 
   if (lichtLux < lichtLuxZuDunkel){
     lichtzustandAktuell = Lichtzustand::zuDunkel;
@@ -318,7 +318,7 @@ void checkSensors(){
   if (lichtzustandAktuell != lichtzustand){
     lichtzustand = lichtzustandAktuell; 
     updateIdleScreen = true; 
-  }
+  }*/
 }
 
 
@@ -401,7 +401,7 @@ void setup() {
     ;
 
 
-  lightMeter.begin(); 
+  //lightMeter.begin(); 
   
   /*if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
@@ -471,8 +471,8 @@ Schleife des Programms
 wiederholt sich endlos
 */
 void loop() {
-  setuplight = lightMeter.readLightLevel();  // Abfrage Licht
-  delay(150);
+  //setuplight = lightMeter.readLightLevel();  // Abfrage Licht
+  //delay(150);
 
   WiFiClient client = server.available();  // Listen for incoming clients
 
@@ -650,10 +650,10 @@ void loop() {
             h = dht.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
-            light = lightMeter.readLightLevel();
+            /*light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
-            client.println("</body></html>");
+            client.println("</body></html>");*/
 
             // Display current state, and ON/OFF buttons for GPIO 26
             client.println("<p>LED </p>");
