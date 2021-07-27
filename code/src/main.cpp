@@ -4,18 +4,19 @@ Benötigte Bibliotheken
 teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 --> Erklärung Versionierung von Bibliotheken, ansprechen von Bibliotheken
 */
-#include <Adafruit_Sensor.h>  //Basisklasse für viele Sensoren
+
 #include <Arduino.h>          //Ansprechen des Arduinos
 //#include <BH1750.h>           //Lichtsensor
-#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
+//#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
 #include <NTPClient.h>        //Uhrzeitabfrage über WiFi
 #include <WiFi.h>             //WiFi-Verbindung
 #include <WiFiUdp.h>          //Uhrzeitabfrage über WiFi
-#include <Wire.h>             //Kommunikation mit I2C
+
 #include <planto_menu.h>
 
 //#include "secrets.h"
 #include "bootstrap.h"
+
 
 /*
 benötigte Variablen,um unsere Hardware ansprechen
@@ -150,7 +151,6 @@ result doAlertIPAdress(eventMask enterEvent, prompt & item);
 result doAlertBootstrap(eventMask enterEvent, prompt &item); 
 void warnings(menuOut &o);
 void printIpAdresse(menuOut &o); 
-void printBootstrapMessage(menuOut &o); 
 
 // Methode zur Regelung der LED-Helligkeit
 
@@ -195,66 +195,6 @@ void printIpAdresse(menuOut &o){
   o.println(WiFi.localIP()); 
 }
 
-void printWifiMessage(menuOut &o){
-  o.setCursor(0,0); 
-  o.println("looking for ");
-  o.setCursor(0,1);
-  o.println("Wifi to connect");
-  o.setCursor(0,2);
-  o.println("Go to your phones wifi");
-  o.setCursor(0,3);
-  o.println("then: 10.1.1.1");
-}
-
-/*void changeBootstrapMessage(){
-  if(bootstrapzustand == Bootstrapzustand::lookingForWifi){
-    printWifiMessage(menuOut &o); 
-  }  
-}*/
-//Wie machen? 
-
-void printBootstrapMessage(menuOut & o){
-  if (bootstrapzustand == Bootstrapzustand::lookingForWifi){
-    o.setCursor(0,0); 
-    o.println("looking for ");
-    o.setCursor(0,1);
-    o.println("Wifi to connect");
-    o.setCursor(0,2);
-    o.println("Go to your phones wifi");
-    o.setCursor(0,3);
-    o.println("then: 10.1.1.1");
-  }
-  else if (bootstrapzustand == Bootstrapzustand::rebootingAfterBootstrap){
-    o.setCursor(0,1);
-    o.println("submit accepted");
-    o.setCursor(0,2);
-    o.println("rebooting for connection");
-  }
-  else if (bootstrapzustand == Bootstrapzustand::wifiConnctedWith){
-    o.setCursor(0,0); 
-    o.println("Wifi connecten");
-    o.setCursor(0,1);
-    o.println("Wifi name: ");
-    o.setCursor(0,2);
-    o.println(WiFi.SSID());
-  }
-}
-result doAlertBootstrap(eventMask e, prompt &item){
-  nav.idleOn(idleBootsrapAusgabe); 
-  return proceed; 
-}
-
-void chooseZustand(Bootstrapzustand b){
-  if (b == Bootstrapzustand::lookingForWifi){
-    doAlertBootstrap; 
-  }
-  else if (b == Bootstrapzustand::rebootingAfterBootstrap){
-    doAlertBootstrap; 
-  }
-  else if ( b == Bootstrapzustand::wifiConnctedWith){
-    doAlertBootstrap; 
-  }
-}
 
 // Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder
 // Funktionalität zum menue?
@@ -366,7 +306,7 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  /*float lichtLux = lightMeter.readLightLevel(); 
+  float lichtLux = lightMeter.readLightLevel(); 
   Lichtzustand lichtzustandAktuell; 
   if (lichtLux < lichtLuxZuDunkel){
     lichtzustandAktuell = Lichtzustand::zuDunkel;
@@ -378,7 +318,7 @@ void checkSensors(){
   if (lichtzustandAktuell != lichtzustand){
     lichtzustand = lichtzustandAktuell; 
     updateIdleScreen = true; 
-  }*/
+  }
 }
 
 
@@ -407,25 +347,47 @@ void turnoffFan(){
   updateFan(); 
 }
 
+void printBooting(){
+  
+  if (bootstrapzustand == Bootstrapzustand::lookingForWifi){
+    u8g2.firstPage();
+    do {
+      u8g2.setFont(fontName);
+      u8g2.drawStr(0,15,"Wifi not found");
+      u8g2.drawStr(0,30,"Connect with");
+      u8g2.drawStr(0,45,"esp32 and");
+      u8g2.drawStr(0,60,"http://10.1.1.1");
+    } while ( u8g2.nextPage() );
+    delay(5000);
+  }
+  else if (bootstrapzustand == Bootstrapzustand::wifiConnctedWith){
+    u8g2.firstPage();
+    do {
+      u8g2.setFont(fontName);
+      u8g2.drawStr(0,15,"Wifi");
+      u8g2.drawStr(0,30,"Connected");
+    } while ( u8g2.nextPage() );
+    delay(5000);
+  }
+}
+
 /*
 Setup des Programms
 Einmalige Ausführung zu Beginn
 Initialisierung von Pins, Sensoren etc.
 */
 void setup() {
-  
-  //aktuellerzustand = std::bind(&doAlertBootstrap, std::placeholders::_1); //funktion in bind, die
-  aktuellerzustand = &chooseZustand; 
 
+  
   ledcSetup(ledChannel, freq, resolution);
   ledcAttachPin(PinLED, ledChannel);
 
-  Wire.begin(21, 22);
-  u8g2.begin();
+  Wire.begin(21,22); 
+  u8g2.begin(21, 22, 0x3C);
   u8g2.setFont(fontName);
+  //u8g2.setCursor(0, 0);
+  //u8g2.print("display"); //andere biblithek nutzen?
   dht.begin();
-
-  setupbootstrap(); 
 
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
@@ -434,15 +396,12 @@ void setup() {
 
   fan.init();
 
-  timeClient.begin();
-
-  // nav.idleTask = planto::idleMenu;
-  nav.idleTask = idleMenu;
-
   Serial.begin(115200);
   while (!Serial)
     ;
 
+
+  lightMeter.begin(); 
   
   /*if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
@@ -450,26 +409,61 @@ void setup() {
     Serial.println(F("Error initialising BH1750"));
   }*/
 
+  
+
+  do{
+    u8g2.firstPage();
+    do {
+      u8g2.setFont(fontName);
+      u8g2.drawStr(0,15,"Connecting");
+      u8g2.drawStr(0,30,"with Wifi ...");
+    } while ( u8g2.nextPage() );
+    setupbootstrap();
+    if(bootstrapzustand == Bootstrapzustand::wifiConnctedWith){
+      printBooting(); 
+    } else {
+      printBooting(); 
+      ESP.restart();
+    }
+  } while (bootstrapzustand == Bootstrapzustand::lookingForWifi); 
+  
+
+  timeClient.begin();
+
+  // nav.idleTask = planto::idleMenu;
+  nav.idleTask = idleMenu;
+  
+
   planto::menuService.SetGrowLEDCallback(updateGrowLED);
   planto::menuService.SetFanCallback(updateFan);
   planto::menuService.SetDoAlertCallback(doAlert);
   planto::menuService.SetWarningsCallback(warnings);
   planto::menuService.SetIPAdresseCallback(printIpAdresse); 
   planto::menuService.SetDoAlertIPAdress(doAlertIPAdress); 
-  planto::menuService.SetBootstrapCallback(printBootstrapMessage);
-  planto::menuService.SetDoAlertBootstrap(doAlertBootstrap);  
 
-  
   // Print local IP address and start web server
   Serial.println("");
   Serial.println("WiFi connected.");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   server.begin();
-  Serial.println("current wifi: " + WiFi.localIP());
   Serial.println(WiFi.SSID()); 
 
   timeClient.begin();
+  bool status; 
+
+  nav.doInput();
+  
+  if (nav.changed(0)) {
+    updateDisplay();
+  }
+  nav.doOutput();
+
+  /*status = bme.begin(0x76); 
+  if (!status) {  
+    Serial.println("Could not find a valid BMP280 !");
+    while (1);
+  }*/
 
 }
 /*
@@ -477,8 +471,8 @@ Schleife des Programms
 wiederholt sich endlos
 */
 void loop() {
-  //setuplight = lightMeter.readLightLevel();  // Abfrage Licht
-  //delay(150);
+  setuplight = lightMeter.readLightLevel();  // Abfrage Licht
+  delay(150);
 
   WiFiClient client = server.available();  // Listen for incoming clients
 
@@ -517,7 +511,6 @@ void loop() {
       nav.idleOn(idleMenu); //so springt er direkt ins Menu
     }
   }
-
   nav.doInput();
 
   if (nav.changed(0)) {
@@ -657,10 +650,10 @@ void loop() {
             h = dht.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
-            /*light = lightMeter.readLightLevel();
+            light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
-            client.println("</body></html>");*/
+            client.println("</body></html>");
 
             // Display current state, and ON/OFF buttons for GPIO 26
             client.println("<p>LED </p>");
