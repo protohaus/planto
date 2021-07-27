@@ -1,6 +1,9 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>      //Basisklasse für viele Sensoren
 //#include <BH1750.h>              //Lichtsensor
 #include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
+#include <Adafruit_BME280.h>  //neuer Luftfeuchtigkeits und Temperatursensor
 #include <menu.h>                //Menu
 #include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
 #include <menuIO/serialIn.h>  //Verwendung von standardmäßigem seriellen Input
@@ -21,11 +24,24 @@
 #define offsetY 3
 #define U8_Width 128
 #define U8_Height 64
+#define display_SDA 21
+#define display_SCL 22
+
 
 // für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
 #define DHTPIN 32
 #define DHTTYPE DHT11
+#define BME_SDA 21
+#define BME_SCL 22
+Adafruit_BME280 bme; 
+
+
+
+//Wasserstandssensor
 int PinCapacitiveSoil = 35;  // Pin-Belegung Feuchtigkeitssensor
+
+
+//Display und Menü Variablen
 int duration = 500;        // Dauer in ms für Displayupdate
 int display_timeout =
     20000;  // Display wechselt in super Menu Modus nach 30 min=18000000ms
@@ -36,9 +52,8 @@ long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 
 bool flag_idling = false; 
 
-/*BH1750 lightMeter(
-    0x5C);  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
-*/
+/*BH1750 lightMeter(0x5C);*/  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
+
 DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
                            // und Luftfeuchtigkeit
 
@@ -60,7 +75,7 @@ int PinTasterEsc = 18;    // Taster zum zurück gehen
 
 result idleIPAdress(menuOut &o, idleEvent e);
 
-result idleBootsrapAusgabe(menuOut &o, idleEvent e);
+
 // Klasse
 namespace planto {
 
@@ -84,12 +99,6 @@ class MenuService {
   void SetDoAlertIPAdress(std::function<result(eventMask, prompt &)> callback){
     do_alert_ipadress_callback_ = callback; 
   }
-  void SetBootstrapCallback(std::function<void(menuOut &)> callback){
-    bootstrap_callback_ = callback; 
-  }
-  void SetDoAlertBootstrap(std::function<result(eventMask, prompt &)> callback){
-    do_alert_bootstrap_callback_ = callback; 
-  }
 
   std::function<result()> grow_led_callback_;
   std::function<result()> fan_callback_;
@@ -97,8 +106,6 @@ class MenuService {
   std::function<void(menuOut &)> warnings_callback_;
   std::function<void(menuOut &)> ipadress_callback_; 
   std::function<result(eventMask, prompt &)> do_alert_ipadress_callback_; 
-  std::function<void(menuOut &)> bootstrap_callback_; 
-  std::function<result(eventMask, prompt &)> do_alert_bootstrap_callback_; 
 };
 MenuService menuService;
 
@@ -191,7 +198,7 @@ result alert(menuOut &o, idleEvent e) {
     case Menu::idleStart:
       break;
     case Menu::idling:
-      t = dht.readTemperature();
+      t = bme.readTemperature(); 
       //light = lightMeter.readLightLevel(); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
@@ -200,11 +207,11 @@ result alert(menuOut &o, idleEvent e) {
       if (water > 100) {
         water = 100;
       }
-      h = dht.readHumidity();
-      hum = ((int)(h * 10)) / 10.0;
+      h = bme.readHumidity();
+      //hum = ((int)(h * 10)) / 10.0;
       o.setCursor(0, 0);
       o.print("Temperatur ");
-      o.print(t, 1);
+      o.print(t-2.8, 1);
       o.setCursor(16, 0);
       o.print("C");
       o.setCursor(0, 1);
@@ -214,11 +221,11 @@ result alert(menuOut &o, idleEvent e) {
       o.print("%");
       o.setCursor(0, 2);
       o.print("Feuchtigkeit ");
-      o.print(hum);
-      o.setCursor(16, 2);
+      o.print(h);
+      o.setCursor(17, 2);
       o.print("%");
-      o.setCursor(0, 3);
-      /*o.print("Helligkeit ");
+      /*o.setCursor(0, 3);
+      o.print("Helligkeit ");
       o.print(light);
       o.setCursor(15, 3);
       o.print("lx");*/
@@ -228,7 +235,6 @@ result alert(menuOut &o, idleEvent e) {
     default:
       break;
   }
-
   return proceed;
 }
 /*result idleMenuLink(menuOut &o, idleEvent e) {
@@ -255,27 +261,13 @@ result idleMenu(menuOut &o, idleEvent e) {
 }
 
 result idleIPAdress(menuOut &o, idleEvent e){
+  o.clear(); 
   switch(e){
     case Menu::idleStart:
       break;
     case Menu::idling:
+      o.clear(); 
       planto::menuService.ipadress_callback_(o); 
-      break; 
-    case Menu::idleEnd:
-      break;
-    default:
-      break;
-  }
-  return proceed;
-}
-
-result idleBootsrapAusgabe(menuOut &o, idleEvent e){
-  switch(e){
-    case Menu::idleStart:
-      break;
-    case Menu::idling:
-      //callback zu Ausgabe in Main  
-      planto::menuService.bootstrap_callback_(o); 
       break; 
     case Menu::idleEnd:
       break;

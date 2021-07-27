@@ -39,8 +39,7 @@ Params eg;
 
 //enum Klasse, für Displayausgabe während Bootstrapping 
 enum class Bootstrapzustand {
-  lookingForWifi, 
-  rebootingAfterBootstrap, 
+  lookingForWifi,  
   wifiConnctedWith
 } ; 
 Bootstrapzustand bootstrapzustand = Bootstrapzustand::lookingForWifi; 
@@ -70,6 +69,9 @@ const char* PAGE[] = { "EspBootstrap",
                        "Config URL",
                      };
 
+
+
+
 void printConfig() {
   _PL();
   _PL("Config dump");
@@ -82,18 +84,6 @@ void printConfig() {
   _PP("\tota url  : "); _PL(eg.ota_url);
   _PL();
 }
-/*void print(Bootstrapzustand &bootstrapzustand){
-  if (bootstrapzustand == Bootstrapzustand::lookingForWifi){
-    _PP("std:Bind: looking for Wifi"); 
-  }
-  else if (bootstrapzustand == Bootstrapzustand::rebootingAfterBootstrap){
-    _PL("std:Bind:rebooting");
-  }
-  else {
-    _PL("std:Bind: wifi connected"); 
-  }
-}*/
-void (*aktuellerzustand)(Bootstrapzustand); 
 
 void setupWifi(const char* ssid, const char* pwd) {
   _PP("Setup_wifi()");
@@ -115,12 +105,12 @@ bool waitForWifi(unsigned long aTimeout) {
       return true;
     }
   }
+
   _PP(" WiFi connected");
   _PL("IP address: "); _PL(WiFi.localIP());
   _PP("SSID: ");_PL(WiFi.SSID());
   _PP("mac: "); _PL(WiFi.macAddress());
   bootstrapzustand = Bootstrapzustand::wifiConnctedWith; 
-  aktuellerzustand(bootstrapzustand); 
   return false;
 }
 
@@ -132,8 +122,11 @@ void cleaneprom(){
     EEPROM.write(i, 0);
   }
   EEPROM.end();
-
 }
+/*void printBootstrap(){
+  bootstr::bootingservice.print_bootstrapping_(bootstrapzustand); 
+}*/
+
 
 void setupbootstrap(void) {
   bool wifiTimeout;
@@ -158,6 +151,7 @@ void setupbootstrap(void) {
   #endif
 
   //cleaneprom(); 
+  
   ParametersEEPROMMap *p_ptr = new ParametersEEPROMMap(TOKEN, &eg, &defaults, 0, sizeof(Params));
   ParametersEEPROMMap& p = *p_ptr;
   
@@ -167,31 +161,32 @@ void setupbootstrap(void) {
   rc = p.load();
   _PP("Configuration loaded. rc = "); _PL(rc);
 
+  
+
   if (rc == PARAMS_OK) {
     _PP("Connecting to WiFi for 30 sec:");
     setupWifi(eg.ssid, eg.pwd);
-    bootstrapzustand = Bootstrapzustand::lookingForWifi; 
-    aktuellerzustand(bootstrapzustand); 
     wifiTimeout = waitForWifi(60 * BOOTSTRAP_SECOND);
   }
 
   if (rc != PARAMS_OK || wifiTimeout) {
     _PP("Bootstrapping...");
-    bootstrapzustand = Bootstrapzustand::lookingForWifi; 
-    aktuellerzustand(bootstrapzustand); 
-    rc = ESPBootstrap.run(PAGE, PARS, NPARS_BTS, 5 * BOOTSTRAP_MINUTE);
+    
+    rc = ESPBootstrap.run(PAGE, PARS, NPARS_BTS, 3 * BOOTSTRAP_MINUTE);
     if (rc == BOOTSTRAP_OK) {
       p.save();
       _PL("Bootstrapped OK. Rebooting.");
-      bootstrapzustand = Bootstrapzustand::rebootingAfterBootstrap;
-      aktuellerzustand(bootstrapzustand); 
+      bootstrapzustand = Bootstrapzustand::wifiConnctedWith; 
     }
     _PP("Bootstrap timed out. Rebooting.");
+    bootstrapzustand = Bootstrapzustand::lookingForWifi; 
     delay(1000);
-    ESP.restart();
+    
   }
+  
   rc = JSONConfig.parse(eg.cfg_url, PARS, NPARS - 1);
   _PP("JSONConfig finished. rc = "); _PL(rc);
   if (rc == 0) p.save();
+  
 }
 
