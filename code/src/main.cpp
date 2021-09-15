@@ -7,7 +7,6 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 
 #include <Arduino.h>          //Ansprechen des Arduinos
 //#include <BH1750.h>           //Lichtsensor
-//#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
 #include <NTPClient.h>        //Uhrzeitabfrage über WiFi
 #include <WiFi.h>             //WiFi-Verbindung
 #include <WiFiUdp.h>          //Uhrzeitabfrage über WiFi
@@ -278,7 +277,8 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float temperaturGrad = dht.readTemperature(); 
+  float temperaturGrad = bme.readTemperature(); 
+  temperaturGrad = temperaturGrad-2.8; 
   Temperaturzustand temperaturzustandAktuell; 
   if (temperaturGrad < temperaturGradZuKalt){
     temperaturzustandAktuell = Temperaturzustand::zuKalt;
@@ -292,7 +292,7 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float luftfeuchtigkeit = dht.readHumidity(); 
+  float luftfeuchtigkeit = bme.readHumidity(); 
   Luftfeuchtigkeitzustand luftfeuchtigkeitzustandAktuell; 
   if (luftfeuchtigkeit < luftfeuchtigkeitzustandZuTrocken){
     luftfeuchtigkeitzustandAktuell = Luftfeuchtigkeitzustand::zuTrocken;
@@ -385,9 +385,7 @@ void setup() {
   Wire.begin(21,22); 
   u8g2.begin(21, 22, 0x3C);
   u8g2.setFont(fontName);
-  //u8g2.setCursor(0, 0);
-  //u8g2.print("display"); //andere biblithek nutzen?
-  dht.begin();
+  
 
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
@@ -636,7 +634,8 @@ void loop() {
             // Web Page Heading
             client.println("<body><h1>Planto Web Server</h1>");
             client.println("<p> Temperatur</p>");
-            client.println(String("<p>") + dht.readTemperature() + " C</p>");
+            t = bme.readTemperature()-2.8; 
+            client.println(String("<p>") + t + " C</p>");
             client.println("<p> Wasserstand </p>");
             water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
             if (water < 0) {
@@ -647,7 +646,7 @@ void loop() {
             }
             client.println(String("<p>") + water + " %</p>");
             client.println("<p> Luftfeuchtigkeit </p>");
-            h = dht.readHumidity();
+            h = bme.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
             light = lightMeter.readLightLevel();
