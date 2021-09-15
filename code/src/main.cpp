@@ -7,19 +7,16 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 
 #include <Arduino.h>          //Ansprechen des Arduinos
 //#include <BH1750.h>           //Lichtsensor
-//#include <DHT.h>              //Feuchtigkeits- und Temperatursensor
 #include <NTPClient.h>        //Uhrzeitabfrage über WiFi
 #include <WiFi.h>             //WiFi-Verbindung
 #include <WiFiUdp.h>          //Uhrzeitabfrage über WiFi
 
-#include <planto_menu.h>
-
-//#include "secrets.h"
-#include "bootstrap.h"
+#include <planto_menu.h>      //eigene Klasse für Initialisierungen
+#include "bootstrap.h"        //eigene Klasse für Wlan-Wechsel
 
 
 /*
-benötigte Variablen,um unsere Hardware ansprechen
+benötigte Variablen,um unsere Hardware anzusprechen
 --> Datentypen erläutern
 */
 
@@ -94,7 +91,6 @@ bool warningout = false;  // Warnungen ein und ausschalten manuell
 
 // Growing-LED
 int PinLED = 25;  // Pin-Belegung LED
-// int dutyCycleLED = 0;      // Regulierung des PWM Signals --> PWM erläutern
 const int freq = 5000;     // Arduino-PWM-Frequenz ist bei 500Hz
                            // (https://www.arduino.cc/en/tutorial/PWM)
 const int ledChannel = 0;  // Vergebung eines internen Channels, beliebig
@@ -118,7 +114,6 @@ Buttonzustand FanButtonzustand = Buttonzustand::aus;
 String header;
 
 // Auxiliar variables to store the current output state
-
 String outputFan = "off";
 
 // Current time
@@ -133,14 +128,8 @@ const long timeoutTime = 2000;
 const long utcOffsetInSeconds = 3600;
 
 int thistime = 0;
-boolean ledon = false;
-boolean manualled = true;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
-
-int freq_buzzer = 2000;
-int channel_buzzer = 1;
-int resolution_buzzer = 8;
 
 // Funktionsdeklarieung, damit im Menü direkt darauf zugegriffen werden kann
 // --> Hierarchie/Struktur von Programmen
@@ -186,6 +175,9 @@ result updateFan() {
   }
   return proceed;
 }
+
+//Methode zur Ausgabe der IP Adresse 
+
 void printIpAdresse(menuOut &o){
   o.setCursor(0,0); 
   o.println("IP-Adresse"); 
@@ -196,8 +188,7 @@ void printIpAdresse(menuOut &o){
 }
 
 
-// Wozu brauchen wir die Methode nochmal genau? Warum ist die Wichtig oder
-// Funktionalität zum menue?
+// Methoden zum aktivieren der Callbacks und Methoden in planto_menu.h
 
 result doAlert(eventMask e, prompt &item) {
   nav.idleOn(alert);
@@ -262,6 +253,8 @@ void warnings(menuOut &o) {
   }
 }
 
+//Methode um die Sensoren abzufragen und für Warnungen einzustufen bezüglich Werte
+
 void checkSensors(){
   int wasserstandProzent = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0); 
   Wasserzustand wasserzustandAktuell; 
@@ -278,7 +271,8 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float temperaturGrad = dht.readTemperature(); 
+  float temperaturGrad = bme.readTemperature(); 
+  temperaturGrad = temperaturGrad-2.8; 
   Temperaturzustand temperaturzustandAktuell; 
   if (temperaturGrad < temperaturGradZuKalt){
     temperaturzustandAktuell = Temperaturzustand::zuKalt;
@@ -292,7 +286,7 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  float luftfeuchtigkeit = dht.readHumidity(); 
+  float luftfeuchtigkeit = bme.readHumidity(); 
   Luftfeuchtigkeitzustand luftfeuchtigkeitzustandAktuell; 
   if (luftfeuchtigkeit < luftfeuchtigkeitzustandZuTrocken){
     luftfeuchtigkeitzustandAktuell = Luftfeuchtigkeitzustand::zuTrocken;
@@ -337,6 +331,7 @@ void turnoffLED() {
   Serial.println("LED off");
 }
 
+// Methoden zum an und ausschalten des Fans
 void turnonFan(){
   fan.dutyCycleFan_ = 100; 
   updateFan(); 
@@ -346,6 +341,8 @@ void turnoffFan(){
   fan.dutyCycleFan_ = 0; 
   updateFan(); 
 }
+
+//Methode zur Ausgabe der Booting Hinweise
 
 void printBooting(){
   
@@ -377,17 +374,12 @@ Einmalige Ausführung zu Beginn
 Initialisierung von Pins, Sensoren etc.
 */
 void setup() {
-
-  
   ledcSetup(ledChannel, freq, resolution);
   ledcAttachPin(PinLED, ledChannel);
 
   Wire.begin(21,22); 
   u8g2.begin(21, 22, 0x3C);
   u8g2.setFont(fontName);
-  //u8g2.setCursor(0, 0);
-  //u8g2.print("display"); //andere biblithek nutzen?
-  //dht.begin();
 
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
@@ -408,8 +400,6 @@ void setup() {
   } else {
     Serial.println(F("Error initialising BH1750"));
   }*/
-
-  
 
   do{
     u8g2.firstPage();
@@ -636,7 +626,8 @@ void loop() {
             // Web Page Heading
             client.println("<body><h1>Planto Web Server</h1>");
             client.println("<p> Temperatur</p>");
-            client.println(String("<p>") + dht.readTemperature() + " C</p>");
+            t = bme.readTemperature()-2.8; 
+            client.println(String("<p>") + t + " C</p>");
             client.println("<p> Wasserstand </p>");
             water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
             if (water < 0) {
@@ -647,7 +638,7 @@ void loop() {
             }
             client.println(String("<p>") + water + " %</p>");
             client.println("<p> Luftfeuchtigkeit </p>");
-            h = dht.readHumidity();
+            h = bme.readHumidity();
             hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + hum + " % </p>");
             /*light = lightMeter.readLightLevel();
