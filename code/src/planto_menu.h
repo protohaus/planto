@@ -194,12 +194,15 @@ void updateDisplay() {
 // heißt sie alert, wenn sie das Menue zeigt?
 
 result alert(menuOut &o, idleEvent e) {
+  
   switch (e) {
     case Menu::idleStart:
       break;
     case Menu::idling:
+      
       t = bme.readTemperature(); 
       //light = lightMeter.readLightLevel(); 
+      o.println("messwerte"); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
         water = 0;

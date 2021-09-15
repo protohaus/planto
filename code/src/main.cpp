@@ -387,7 +387,7 @@ void setup() {
   u8g2.setFont(fontName);
   //u8g2.setCursor(0, 0);
   //u8g2.print("display"); //andere biblithek nutzen?
-  dht.begin();
+  //dht.begin();
 
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
@@ -459,11 +459,11 @@ void setup() {
   }
   nav.doOutput();
 
-  /*status = bme.begin(0x76); 
+  status = bme.begin(0x76); 
   if (!status) {  
     Serial.println("Could not find a valid BMP280 !");
     while (1);
-  }*/
+  }
 
 }
 /*
