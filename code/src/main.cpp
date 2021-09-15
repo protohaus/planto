@@ -459,11 +459,11 @@ void setup() {
   }
   nav.doOutput();
 
-  /*status = bme.begin(0x76); 
+  status = bme.begin(0x76); 
   if (!status) {  
     Serial.println("Could not find a valid BMP280 !");
     while (1);
-  }*/
+  }
 
 }
 /*
