@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>      //Basisklasse für viele Sensoren
 //#include <BH1750.h>              //Lichtsensor
-#include <DHT.h>                 //Feuchtigkeits- und Temperatursensor
 #include <Adafruit_BME280.h>  //neuer Luftfeuchtigkeits und Temperatursensor
 #include <menu.h>                //Menu
 #include <menuIO/chainStream.h>  //Verbindung von mehreren Input-Streams zu einem
@@ -12,7 +11,6 @@
 #include <menuIO/u8g2Out.h>    //Nutzung von u8g2 Display
 
 #include <functional>
-
 #include "fan.h"  //Klasse für den Ventilator
 
 // Parameter für das Display und das Menü
@@ -28,14 +26,10 @@
 #define display_SCL 22
 
 
-// für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
-#define DHTPIN 32
-#define DHTTYPE DHT11
+//Pin-Definitionen für Temperatur- und luftfeuchtigkeitssensor
 #define BME_SDA 21
 #define BME_SCL 22
 Adafruit_BME280 bme; 
-
-
 
 //Wasserstandssensor
 int PinCapacitiveSoil = 35;  // Pin-Belegung Feuchtigkeitssensor
@@ -53,9 +47,6 @@ long last_active_display = 0;  // Zeitstempel der letzen Benutzung
 bool flag_idling = false; 
 
 /*BH1750 lightMeter(0x5C);*/  // I2C Adresse für den Lichtsensor, häufig 0x23, sonst oft 0x5C
-
-DHT dht(DHTPIN, DHTTYPE);  // Initialisierung des DHT Sensors für Temperatur-
-                           // und Luftfeuchtigkeit
 
 // Die Klasse Fan zum Ansprechen des Ventilators wurde ausgelagert in fan.cpp
 planto::Fan fan;
@@ -147,7 +138,7 @@ int dummy = 2;
 int drehzahl = 0;
 
 
-
+//eigentliche Menu-Einstellungen
 
 MENU(mainMenu, "Einstellungen", Menu::doNothing, Menu::noEvent, Menu::wrapStyle,
      FIELD(dutyCycleLED, "LED", "%", 0, 255, 25, 10, planto::updateGrowLEDLink,
@@ -199,7 +190,6 @@ result alert(menuOut &o, idleEvent e) {
     case Menu::idleStart:
       break;
     case Menu::idling:
-      
       t = bme.readTemperature(); 
       //light = lightMeter.readLightLevel(); 
       o.println("messwerte"); 

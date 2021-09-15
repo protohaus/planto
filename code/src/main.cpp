@@ -639,8 +639,8 @@ void loop() {
             client.println(String("<p>") + water + " %</p>");
             client.println("<p> Luftfeuchtigkeit </p>");
             h = bme.readHumidity();
-            hum = ((int)(h * 10)) / 10.0;
-            client.println(String("<p>") + hum + " % </p>");
+            //hum = ((int)(h * 10)) / 10.0;
+            client.println(String("<p>") + h + " % </p>");
             /*light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
