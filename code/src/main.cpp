@@ -258,7 +258,7 @@ void warnings(menuOut &o) {
 void checkSensors(){
   int wasserstandProzent = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0); 
   Wasserzustand wasserzustandAktuell; 
-  //Serial.print("wasserzustand: "); Serial.println(wasserstandProzent);
+  Serial.print("wasserzustand: "); Serial.println(wasserstandProzent);
   if (wasserstandProzent < wasserstandProzentZuWenig){
     wasserzustandAktuell = Wasserzustand::zuWenig; 
   } else if (wasserstandProzent > wasserstandProzentZuViel){
@@ -300,11 +300,12 @@ void checkSensors(){
     updateIdleScreen = true; 
   }
 
-  /*float lichtLux = lightMeter.readLightLevel(); 
+  light = lightMeter.readLightLevel(); 
+  Serial.print("licht: "); Serial.println(light);
   Lichtzustand lichtzustandAktuell; 
-  if (lichtLux < lichtLuxZuDunkel){
+  if (light < lichtLuxZuDunkel){
     lichtzustandAktuell = Lichtzustand::zuDunkel;
-  } else if (lichtLux > lichtLuxZuHell){
+  } else if (light > lichtLuxZuHell){
     lichtzustandAktuell = Lichtzustand::zuHell;  
   } else {
     lichtzustandAktuell = Lichtzustand::ok; 
@@ -312,7 +313,7 @@ void checkSensors(){
   if (lichtzustandAktuell != lichtzustand){
     lichtzustand = lichtzustandAktuell; 
     updateIdleScreen = true; 
-  }*/
+  }
 }
 
 
@@ -393,14 +394,6 @@ void setup() {
     ;
 
 
-  //lightMeter.begin(); 
-  
-  /*if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
-    Serial.println(F("BH1750 Advanced begin"));
-  } else {
-    Serial.println(F("Error initialising BH1750"));
-  }*/
-
   do{
     u8g2.firstPage();
     do {
@@ -450,9 +443,17 @@ void setup() {
   nav.doOutput();
 
   status = bme.begin(0x76); 
-  if (!status) {  
+  /*if (!status) {  
     Serial.println("Could not find a valid BMP280 !");
     while (1);
+  }*/
+
+  lightMeter.begin(); 
+  
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+    Serial.println(F("BH1750 Advanced begin"));
+  } else {
+    Serial.println(F("Error initialising BH1750"));
   }
 
 }
@@ -462,6 +463,7 @@ wiederholt sich endlos
 */
 void loop() {
   //setuplight = lightMeter.readLightLevel();  // Abfrage Licht
+  
   //delay(150);
 
   WiFiClient client = server.available();  // Listen for incoming clients
@@ -641,10 +643,10 @@ void loop() {
             h = bme.readHumidity();
             //hum = ((int)(h * 10)) / 10.0;
             client.println(String("<p>") + h + " % </p>");
-            /*light = lightMeter.readLightLevel();
+            light = lightMeter.readLightLevel();
             client.println("<p> Helligkeit </p>");
             client.println(String("<p>") + light + " lx </p>");
-            client.println("</body></html>");*/
+            client.println("</body></html>");
 
             // Display current state, and ON/OFF buttons for GPIO 26
             client.println("<p>LED </p>");
