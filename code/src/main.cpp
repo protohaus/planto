@@ -387,7 +387,7 @@ void setup() {
   u8g2.setFont(fontName);
   //u8g2.setCursor(0, 0);
   //u8g2.print("display"); //andere biblithek nutzen?
-  dht.begin();
+  
 
   pinMode(PinTasterSelect, INPUT_PULLUP);
   pinMode(PinTasterUp, INPUT_PULLUP);
@@ -402,12 +402,13 @@ void setup() {
 
 
   lightMeter.begin(); 
+  dht.begin();
   
-  /*if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
     Serial.println(F("BH1750 Advanced begin"));
   } else {
     Serial.println(F("Error initialising BH1750"));
-  }*/
+  }
 
   
 
