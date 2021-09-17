@@ -31,9 +31,9 @@
 // für den DHT11-Sensor zum Messen der Luftfeuchtigkeit und Temperatur
 #define DHTPIN 32
 #define DHTTYPE DHT11
-#define BME_SDA 21
+/*#define BME_SDA 21
 #define BME_SCL 22
-Adafruit_BME280 bme; 
+Adafruit_BME280 bme; */
 
 
 
@@ -198,7 +198,7 @@ result alert(menuOut &o, idleEvent e) {
     case Menu::idleStart:
       break;
     case Menu::idling:
-      t = bme.readTemperature(); 
+      t = dht.readTemperature(); 
       light = lightMeter.readLightLevel(); 
       water = map(analogRead(PinCapacitiveSoil), 500, 2500, 100, 0);
       if (water < 0) {
@@ -207,8 +207,8 @@ result alert(menuOut &o, idleEvent e) {
       if (water > 100) {
         water = 100;
       }
-      h = bme.readHumidity();
-      //hum = ((int)(h * 10)) / 10.0;
+      h = dht.readHumidity();
+      hum = ((int)(h * 10)) / 10.0;
       o.setCursor(0, 0);
       o.print("Temperatur ");
       o.print(t-2.8, 1);
