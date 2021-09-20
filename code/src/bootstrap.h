@@ -1,3 +1,9 @@
+/*Klasse zur Verbindung mit dem lokalen WIFi ohne, dass das Passwort manuel über den COode aktualisiert werden muss
+Einfach mit dem Hotspot des Esp32 über wlan verbinden, in den Browser gehen und http:/10.0.0.0 eingeben, dann das passende Wlan und Passwort eingeben, 
+damit sich der Esp32 mit dem lokalen Wlan verbindet. 
+Der ESP32 verbindet sich anschließend mit dem richtigen wlan und funktioniert. Er kann dann über den Webserver gesteuert werden 
+*/
+
 #include <Arduino.h>
 #include <functional> 
 
@@ -114,6 +120,8 @@ bool waitForWifi(unsigned long aTimeout) {
   return false;
 }
 
+/*Hilfsmethode, um den EProm manuel zu leeren, bei Problemen mit dem Bootstrapping 
+*/
 void cleaneprom(){
   //idf.py erase_flash
   EEPROM.begin(512);

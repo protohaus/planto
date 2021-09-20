@@ -252,7 +252,8 @@ result idleMenu(menuOut &o, idleEvent e) {
   }
   return proceed;
 }
-
+/*Methode zur Darstellung der IP Adresse, wenn man im Menüpunkt auf Webserver klickt
+*/
 result idleIPAdress(menuOut &o, idleEvent e){
   o.clear(); 
   switch(e){

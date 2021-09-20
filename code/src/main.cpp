@@ -393,7 +393,8 @@ void setup() {
   while (!Serial)
     ;
 
-
+  /* Anzeige auf dem Bildschirm, ob der Panto mit dem Internet verbunden ist oder nicht
+  */
   do{
     u8g2.firstPage();
     do {
@@ -474,6 +475,8 @@ void loop() {
   // Serial.print(daysOfTheWeek[timeClient.getDay()]); (Wenn man Tag haben
   // möchte)
 
+  //automatisches an/ausschalten des Lichtes
+
   thistime = timeClient.getHours();
   if (thistime >= 18 && thistime <= 7) {
     if (ledzustand == Ledzustand::aus) {
@@ -520,6 +523,7 @@ void loop() {
     nav.idleOn(idleMenu);
   }
   
+  //Code zur Aktualisierung durch den Webserver 
   if (client) {  // If a new client connects,
     currentTime = millis();
     previousTime = currentTime;

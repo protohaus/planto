@@ -1,3 +1,5 @@
+/*Klasse zur Nutzung der Fan.cpp Klasse. 
+*/
 #pragma once
 
 #include <Arduino.h>
@@ -14,6 +16,7 @@ class Fan {
 
   int dutyCycleFan_;
   
+  //enum-Methode zum festsetzen des Zustandes des Fans
   enum class Zustand {
     an, 
     aus
