@@ -2,10 +2,17 @@
 
 Ein automatisiertes Mini-Gewächshaus für Kids zum Lernen und Wachsen.
 
-Bisher gibt es nur die main-Datei, in welcher verschiedene Funktionalitäten übernommen werden können: 
+-main.cpp: Enthält alle wichtigen Funktionen des Plantos bezüglich der Steuerung der Sensoren und Integation des Menüs, sowie Aufnau & Kommunikation mit dem Webserver 
+-planto_menu.h: Ausgelagerte Klasse, in der alle nötigen Definitionen und Methoden für das Menu enthalten sind
+-bootstrap.h: Klasse zur Verbindung mit dem lokalen WIFi ohne, dass das Passwort manuel über den COode aktualisiert werden muss
+-fan.cpp: Klasse, die die Methoden des Fans enthält 
+-fan.h: Klasse zur Nutzung der Fan.cpp Klasse
 
-- Das Menü für den OLED Display und eine Taster Schaltung 
-- eine integrierte Wasser-Feuchtigkeitsmessung
-- eine Pumpe 
+Der Planto hat damit folgende Funktionen: 
 
-Davon soll für den Planto zukünftig das Menü übernommen werden, die Funktionalitäten sind jedoch andere...
+-Temperatur & Luftfeuchtigkeit könenn angezeigt werden
+-Die Helligkeit kann gemessen werden
+-Die LED kann an und ausgeschafltet werden, auch über den Webserver
+-Der Ventilator kann an und ausgeschaltet werden, auch über den Webserver 
+-Verbindung mit dem Webserver über lokale IP ist möglich 
+-Automatisches Booststrapping, wenn sich der Planto in einem unbekannten WIFi befindet 
