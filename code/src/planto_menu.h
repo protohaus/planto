@@ -1,3 +1,6 @@
+/*Ausgelagerte Klasse, in der alle nötigen Definitionen und Methoden für das Menu enthalten sind
+*/
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>      //Basisklasse für viele Sensoren
