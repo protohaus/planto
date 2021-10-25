@@ -1,9 +1,14 @@
+/**
+ * Ausgelagerte Klasse, die alle Klassen und Methoden für den WebServer enthält
+ * 
+**/
+
 #include <NTPClient.h>        //Uhrzeitabfrage über WiFi
 #include <WiFi.h>             //WiFi-Verbindung
 #include <WiFiUdp.h>      
 #include <planto_menu.h>
 
-// Messwerte
+// Messwerte: 
 
 float setuplight = 0.0;  // abgefragter Lichtwert -->umbennen
 // Bool-Variablen als Flags für Fehlermeldungen
