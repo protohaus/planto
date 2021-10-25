@@ -79,15 +79,15 @@ result updateGrowLED() {
 result updateFan() {
   planto::Fan::Zustand zustandAktuell; 
   if (fan.dutyCycleFan_ > 0){
-    Serial.println("fan an"); 
+    Serial.println("fan bereits an"); 
     zustandAktuell = planto::Fan::Zustand::an; 
   } else if (fan.dutyCycleFan_ <= 0) {
-    Serial.println("fan aus"); 
+    Serial.println("fan bereits aus"); 
     zustandAktuell = planto::Fan::Zustand::aus; 
   }
   if (zustandAktuell != fan.zustand){
     fan.zustand = zustandAktuell; 
-    Serial.println("change");
+    Serial.println("change needed");
     fan.updateSpeed();
   }
   return proceed;
@@ -112,11 +112,13 @@ void turnoffLED() {
 // Methoden zum an und ausschalten des Fans
 void turnonFan(){
   fan.dutyCycleFan_ = 100; 
+  Serial.println(fan.dutyCycleFan_); 
   updateFan(); 
 }
 
 void turnoffFan(){
   fan.dutyCycleFan_ = 0; 
+  Serial.println(fan.dutyCycleFan_); 
   updateFan(); 
 }
 
