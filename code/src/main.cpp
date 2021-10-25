@@ -7,8 +7,6 @@ teilweise zusätzliche Deklarierung in platformio.ini mit Verweis auf Versionen
 
 #include <Arduino.h>          //Ansprechen des Arduinos
 //#include <BH1750.h>           //Lichtsensor
-
-
 #include <mywebserver.h>      //eigene Klasse für Initialisierungen
 #include "bootstrap.h"        //eigene Klasse für Wlan-Wechsel
 
